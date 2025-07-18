@@ -62,8 +62,8 @@
 <body>
 
   <!-- Background video -->
-  <video id="bg-video" muted loop>
-    <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
+  <video id="bg-video" muted>
+    <source src="https://files.catbox.moe/i8tyq7.mp4" type="video/mp4" />
     Your browser does not support the video tag.
   </video>
 
@@ -100,9 +100,9 @@
     const funkAudio = document.getElementById("funkAudio");
     const bgVideo = document.getElementById("bg-video");
 
-    let videoShown = false;
+    let videoTriggered = false;
 
-    // Pause semua audio lain saat satu diputar
+    // Pause audio lain saat satu diputar
     allPlayers.forEach(player => {
       player.addEventListener("play", () => {
         allPlayers.forEach(other => {
@@ -111,21 +111,33 @@
       });
     });
 
-    // Cek waktu secara rutin pakai interval
-    setInterval(() => {
-      if (!funkAudio.paused && funkAudio.currentTime >= 73.5 && !videoShown) {
-        bgVideo.style.display = "block";
+    // Sync pause dan play
+    funkAudio.addEventListener("pause", () => {
+      if (!bgVideo.paused) bgVideo.pause();
+    });
+
+    funkAudio.addEventListener("play", () => {
+      if (videoTriggered && bgVideo.paused) {
         bgVideo.play();
-        videoShown = true;
+      }
+    });
+
+    // Cek detik untuk trigger video
+    setInterval(() => {
+      if (funkAudio.currentTime >= 72 && !videoTriggered) {
+        bgVideo.style.display = "block";
+        bgVideo.currentTime = 0;
+        bgVideo.play();
+        videoTriggered = true;
       }
 
-      // Sembunyikan video jika lagu selesai
+      // Reset saat lagu selesai
       if (funkAudio.ended) {
         bgVideo.pause();
         bgVideo.style.display = "none";
-        videoShown = false;
+        videoTriggered = false;
       }
-    }, 200); // cek setiap 200ms
+    }, 200);
   </script>
 
 </body>
