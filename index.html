@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Music Player Menu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * {
       box-sizing: border-box;
@@ -14,12 +15,48 @@
       font-family: "Segoe UI", sans-serif;
       margin: 0;
       padding: 0;
-      height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      overflow: hidden;
-      position: relative;
+      justify-content: flex-start;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      font-size: 5vw;
+      margin: 5vw 0 3vw;
+      text-align: center;
+      z-index: 1;
+    }
+
+    .music-container {
+      background-color: #1f1f1fdd;
+      border-radius: 15px;
+      padding: 5vw;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+      overflow-y: auto;
+    }
+
+    .track {
+      background-color: #2a2a2a;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 10px;
+    }
+
+    .track-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 1.2em;
+    }
+
+    audio {
+      width: 100%;
+      border-radius: 8px;
     }
 
     #bg-video {
@@ -32,58 +69,13 @@
       z-index: -1;
       display: none;
     }
-
-    h1 {
-      font-size: 2.2em;
-      margin: 20px 0 10px;
-      transition: color 0.3s;
-    }
-
-    .music-container {
-      background-color: rgba(31, 31, 31, 0.85); /* transparan */
-      border-radius: 15px;
-      padding: 30px 20px;
-      width: 100%;
-      max-width: 500px;
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
-      overflow-y: auto;
-      max-height: 70vh;
-      z-index: 1;
-    }
-
-    .track {
-      background-color: rgba(42, 42, 42, 0.85);
-      padding: 18px;
-      margin-bottom: 20px;
-      border-radius: 10px;
-    }
-
-    .track-title {
-      font-weight: bold;
-      margin-bottom: 10px;
-      font-size: 1.1em;
-    }
-
-    audio {
-      width: 100%;
-      border-radius: 8px;
-    }
-
-    @media (orientation: landscape) {
-      body {
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: center;
-        overflow-y: auto;
-      }
-    }
   </style>
 </head>
 <body>
 
   <!-- Background video -->
   <video id="bg-video" muted>
-    <source src="https://files.catbox.moe/i8tyq7.mp4" type="video/mp4" />
+    <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
     Your browser does not support the video tag.
   </video>
 
@@ -100,7 +92,7 @@
 
     <div class="track">
       <div class="track-title">Justin Bieber - STAY Remix</div>
-      <audio controls>
+      <audio id="stayAudio" controls>
         <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
         Your browser does not support the audio element.
       </audio>
@@ -108,7 +100,7 @@
 
     <div class="track">
       <div class="track-title">Sinammota - Girl A</div>
-      <audio controls>
+      <audio id="girlAudio" controls>
         <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
         Your browser does not support the audio element.
       </audio>
@@ -122,8 +114,9 @@
     const title = document.getElementById("title");
 
     let videoTriggered = false;
+    const triggerTime = 73.5; // detik saat video mulai
 
-    // Pause semua audio lain saat satu diputar
+    // Pause audio lain saat salah satu diputar
     allPlayers.forEach(player => {
       player.addEventListener("play", () => {
         allPlayers.forEach(other => {
@@ -132,34 +125,48 @@
       });
     });
 
-    // Sinkronisasi hanya dengan Funk Universo
-    funkAudio.addEventListener("pause", () => {
-      if (!bgVideo.paused) bgVideo.pause();
-    });
-
-    funkAudio.addEventListener("play", () => {
-      if (videoTriggered && bgVideo.paused) {
-        bgVideo.play();
-      }
-    });
-
-    // Cek waktu untuk trigger video
-    setInterval(() => {
-      if (funkAudio.currentTime >= 73.5 && !videoTriggered) {
+    // Sinkronisasi video & audio tanpa lag
+    funkAudio.addEventListener("timeupdate", () => {
+      if (!videoTriggered && funkAudio.currentTime >= triggerTime) {
         bgVideo.style.display = "block";
-        bgVideo.currentTime = 0;
-        bgVideo.play();
         title.textContent = "🚨 VIDEO MODE";
+
+        if (bgVideo.readyState >= 2) {
+          bgVideo.currentTime = 0;
+          bgVideo.play();
+        } else {
+          bgVideo.addEventListener("canplay", () => {
+            bgVideo.currentTime = 0;
+            bgVideo.play();
+          }, { once: true });
+        }
+
         videoTriggered = true;
       }
 
       if (funkAudio.ended) {
         bgVideo.pause();
         bgVideo.style.display = "none";
-        title.textContent = "🎧 Music Player";
         videoTriggered = false;
+        title.textContent = "🎧 Music Player";
       }
-    }, 200);
+    });
+
+    // Hentikan video jika audio dijeda
+    funkAudio.addEventListener("pause", () => {
+      if (!funkAudio.ended && !bgVideo.paused) {
+        bgVideo.pause();
+        title.textContent = "🎧 Music Player";
+      }
+    });
+
+    // Lanjutkan video kalau audio dilanjutkan
+    funkAudio.addEventListener("play", () => {
+      if (videoTriggered && bgVideo.paused) {
+        bgVideo.play();
+        title.textContent = "🚨 VIDEO MODE";
+      }
+    });
   </script>
 
 </body>
