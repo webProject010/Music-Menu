@@ -4,16 +4,22 @@
   <meta charset="UTF-8" />
   <title>Music Player Menu</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       background-color: #121212;
       color: #ffffff;
       font-family: "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px;
-      position: relative;
       overflow: hidden;
+      position: relative;
     }
 
     #bg-video {
@@ -28,22 +34,26 @@
     }
 
     h1 {
-      font-size: 2em;
-      margin-bottom: 20px;
+      font-size: 2.2em;
+      margin: 20px 0 10px;
+      transition: color 0.3s;
     }
 
     .music-container {
-      background-color: #1f1f1f;
+      background-color: rgba(31, 31, 31, 0.85); /* transparan */
       border-radius: 15px;
-      padding: 25px;
-      width: 320px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      padding: 30px 20px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+      overflow-y: auto;
+      max-height: 70vh;
       z-index: 1;
     }
 
     .track {
-      background-color: #2a2a2a;
-      padding: 15px;
+      background-color: rgba(42, 42, 42, 0.85);
+      padding: 18px;
       margin-bottom: 20px;
       border-radius: 10px;
     }
@@ -51,11 +61,21 @@
     .track-title {
       font-weight: bold;
       margin-bottom: 10px;
+      font-size: 1.1em;
     }
 
     audio {
       width: 100%;
       border-radius: 8px;
+    }
+
+    @media (orientation: landscape) {
+      body {
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        overflow-y: auto;
+      }
     }
   </style>
 </head>
@@ -67,7 +87,7 @@
     Your browser does not support the video tag.
   </video>
 
-  <h1>🎧 Music Player</h1>
+  <h1 id="title">🎧 Music Player</h1>
 
   <div class="music-container">
     <div class="track">
@@ -80,7 +100,7 @@
 
     <div class="track">
       <div class="track-title">Justin Bieber - STAY Remix</div>
-      <audio id="stayAudio" controls>
+      <audio controls>
         <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
         Your browser does not support the audio element.
       </audio>
@@ -88,7 +108,7 @@
 
     <div class="track">
       <div class="track-title">Sinammota - Girl A</div>
-      <audio id="girlAudio" controls>
+      <audio controls>
         <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
         Your browser does not support the audio element.
       </audio>
@@ -99,10 +119,11 @@
     const allPlayers = document.querySelectorAll("audio");
     const funkAudio = document.getElementById("funkAudio");
     const bgVideo = document.getElementById("bg-video");
+    const title = document.getElementById("title");
 
     let videoTriggered = false;
 
-    // Pause semua audio lain saat salah satu diputar
+    // Pause semua audio lain saat satu diputar
     allPlayers.forEach(player => {
       player.addEventListener("play", () => {
         allPlayers.forEach(other => {
@@ -111,7 +132,7 @@
       });
     });
 
-    // Sinkronisasi audio dengan video
+    // Sinkronisasi hanya dengan Funk Universo
     funkAudio.addEventListener("pause", () => {
       if (!bgVideo.paused) bgVideo.pause();
     });
@@ -122,19 +143,20 @@
       }
     });
 
-    // Deteksi waktu untuk trigger video
+    // Cek waktu untuk trigger video
     setInterval(() => {
       if (funkAudio.currentTime >= 73.5 && !videoTriggered) {
         bgVideo.style.display = "block";
         bgVideo.currentTime = 0;
         bgVideo.play();
+        title.textContent = "🚨 VIDEO MODE";
         videoTriggered = true;
       }
 
-      // Reset video ketika lagu selesai
       if (funkAudio.ended) {
         bgVideo.pause();
         bgVideo.style.display = "none";
+        title.textContent = "🎧 Music Player";
         videoTriggered = false;
       }
     }, 200);
