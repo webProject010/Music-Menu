@@ -71,16 +71,16 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video -->
-  <video id="video-funk" class="bg-video" muted>
+  <!-- Video masing-masing lagu -->
+  <video id="video-funk" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-stay" class="bg-video" muted>
+  <video id="video-stay" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-girl" class="bg-video" muted>
+  <video id="video-girl" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
   </video>
 
@@ -114,75 +114,74 @@
 
     let activeAudio = null;
     let activeVideo = null;
-    let triggerTime = 0;
-
-    function resetVideos(except) {
-      allVideos.forEach(v => {
-        if (v !== except) {
-          v.pause();
-          v.style.display = "none";
-        }
-      });
-    }
+    let videoTriggered = false;
 
     allPlayers.forEach(player => {
       const trigger = parseFloat(player.dataset.trigger);
       const videoId = player.dataset.video;
       const videoEl = document.getElementById(videoId);
 
-      let isTriggered = false;
-
       player.addEventListener("play", () => {
-        // Stop others
-        allPlayers.forEach(p => { if (p !== player) p.pause(); });
-        resetVideos(videoEl);
+        allPlayers.forEach(other => {
+          if (other !== player) other.pause();
+        });
+
+        allVideos.forEach(v => {
+          if (v !== videoEl) {
+            v.pause();
+            v.style.display = "none";
+          }
+        });
+
         activeAudio = player;
         activeVideo = videoEl;
-        triggerTime = trigger;
-        isTriggered = false;
+        videoTriggered = false;
         title.textContent = "Music Player";
       });
 
       player.addEventListener("pause", () => {
-        if (!player.ended && !videoEl.paused) videoEl.pause();
+        if (!player.ended && !videoEl.paused) {
+          videoEl.pause();
+          title.textContent = "Music Player";
+        }
+      });
+
+      player.addEventListener("timeupdate", () => {
+        if (!videoTriggered && player.currentTime >= trigger) {
+          videoEl.style.display = "block";
+          title.textContent = "EASTER EGG FOUND";
+
+          videoEl.currentTime = player.currentTime - trigger;
+          videoEl.play();
+          videoTriggered = true;
+        }
+
+        if (videoTriggered && !videoEl.paused && player === activeAudio) {
+          const expected = player.currentTime - trigger;
+          if (Math.abs(videoEl.currentTime - expected) > 0.3) {
+            videoEl.currentTime = expected;
+          }
+        }
+
+        if (player.ended) {
+          videoEl.pause();
+          videoEl.style.display = "none";
+          title.textContent = "Music Player";
+          videoTriggered = false;
+        }
+
+        // Auto-hide saat video habis
+        if (videoTriggered && videoEl.ended) {
+          videoEl.style.display = "none";
+          title.textContent = "Music Player";
+        }
       });
 
       player.addEventListener("ended", () => {
         videoEl.pause();
         videoEl.style.display = "none";
-        isTriggered = false;
         title.textContent = "Music Player";
-      });
-
-      videoEl.addEventListener("ended", () => {
-        videoEl.pause();
-        videoEl.style.display = "none";
-        title.textContent = "Music Player";
-      });
-
-      player.addEventListener("timeupdate", () => {
-        if (!isTriggered && player.currentTime >= trigger) {
-          isTriggered = true;
-          videoEl.currentTime = player.currentTime - trigger;
-          videoEl.style.display = "block";
-          title.textContent = "EASTER EGG FOUND";
-
-          if (videoEl.readyState >= 2) {
-            videoEl.play();
-          } else {
-            videoEl.addEventListener("canplay", () => {
-              videoEl.play();
-            }, { once: true });
-          }
-        }
-
-        // Sync saat trigger sudah aktif
-        if (isTriggered && !videoEl.paused && player === activeAudio) {
-          const expectedTime = player.currentTime - trigger;
-          if (Math.abs(videoEl.currentTime - expectedTime) > 0.3) {
-            videoEl.currentTime = expectedTime;
-          }
-        }
+        videoTriggered = false;
       });
     });
   </script>
