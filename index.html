@@ -71,16 +71,15 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video masing-masing lagu -->
-  <video id="video-funk" class="bg-video" muted preload="auto">
+  <video id="video-funk" class="bg-video" muted>
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-stay" class="bg-video" muted preload="auto">
+  <video id="video-stay" class="bg-video" muted>
     <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-girl" class="bg-video" muted preload="auto">
+  <video id="video-girl" class="bg-video" muted>
     <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
   </video>
 
@@ -136,7 +135,6 @@
         activeAudio = player;
         activeVideo = videoEl;
         videoTriggered = false;
-        title.textContent = "Music Player";
       });
 
       player.addEventListener("pause", () => {
@@ -151,15 +149,23 @@
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
 
-          videoEl.currentTime = player.currentTime - trigger;
-          videoEl.play();
+          if (videoEl.readyState >= 2) {
+            videoEl.currentTime = 0;
+            videoEl.play();
+          } else {
+            videoEl.addEventListener("canplay", () => {
+              videoEl.currentTime = 0;
+              videoEl.play();
+            }, { once: true });
+          }
+
           videoTriggered = true;
         }
 
         if (videoTriggered && !videoEl.paused && player === activeAudio) {
-          const expected = player.currentTime - trigger;
-          if (Math.abs(videoEl.currentTime - expected) > 0.3) {
-            videoEl.currentTime = expected;
+          const videoOffset = player.currentTime - trigger;
+          if (Math.abs(videoEl.currentTime - videoOffset) > 0.3) {
+            videoEl.currentTime = videoOffset;
           }
         }
 
@@ -168,12 +174,6 @@
           videoEl.style.display = "none";
           title.textContent = "Music Player";
           videoTriggered = false;
-        }
-
-        // Auto-hide saat video habis
-        if (videoTriggered && videoEl.ended) {
-          videoEl.style.display = "none";
-          title.textContent = "Music Player";
         }
       });
 
