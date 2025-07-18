@@ -55,7 +55,7 @@
       border-radius: 8px;
     }
 
-    #bg-video {
+    video.bg-video {
       position: fixed;
       top: 0;
       left: 0;
@@ -69,32 +69,39 @@
 </head>
 <body>
 
-  <!-- Background video -->
-  <video id="bg-video" muted>
+  <h1 id="title">Music Player</h1>
+
+  <!-- Video masing-masing lagu -->
+  <video id="video-funk" class="bg-video" muted>
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
-    Your browser does not support the video tag.
   </video>
 
-  <h1 id="title">🎧 Music Player</h1>
+  <video id="video-stay" class="bg-video" muted>
+    <source src="https://files.catbox.moe/8f2lek.mp4" type="video/mp4" />
+  </video>
+
+  <video id="video-girl" class="bg-video" muted>
+    <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
+  </video>
 
   <div class="music-container">
     <div class="track">
       <div class="track-title">Irokz - Funk Universo</div>
-      <audio controls data-trigger="73.3">
+      <audio controls data-trigger="73.3" data-video="video-funk">
         <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
       </audio>
     </div>
 
     <div class="track">
       <div class="track-title">Justin Bieber - STAY Remix</div>
-      <audio controls data-trigger="65">
+      <audio controls data-trigger="23" data-video="video-stay">
         <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
       </audio>
     </div>
 
     <div class="track">
       <div class="track-title">Sinammota - Girl A</div>
-      <audio controls data-trigger="69">
+      <audio controls data-trigger="69" data-video="video-girl">
         <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
       </audio>
     </div>
@@ -102,67 +109,79 @@
 
   <script>
     const allPlayers = document.querySelectorAll("audio");
-    const bgVideo = document.getElementById("bg-video");
+    const allVideos = document.querySelectorAll("video.bg-video");
     const title = document.getElementById("title");
 
     let activeAudio = null;
+    let activeVideo = null;
     let videoTriggered = false;
 
     allPlayers.forEach(player => {
       const trigger = parseFloat(player.dataset.trigger);
+      const videoId = player.dataset.video;
+      const videoEl = document.getElementById(videoId);
 
       player.addEventListener("play", () => {
         allPlayers.forEach(other => {
           if (other !== player) other.pause();
         });
 
+        allVideos.forEach(v => {
+          if (v !== videoEl) {
+            v.pause();
+            v.style.display = "none";
+          }
+        });
+
         activeAudio = player;
+        activeVideo = videoEl;
+        videoTriggered = false;
       });
 
       player.addEventListener("pause", () => {
-        if (!player.ended && !bgVideo.paused) {
-          bgVideo.pause();
-          title.textContent = "🎧 Music Player";
+        if (!player.ended && !videoEl.paused) {
+          videoEl.pause();
+          title.textContent = "Music Player";
         }
       });
 
       player.addEventListener("timeupdate", () => {
         if (!videoTriggered && player.currentTime >= trigger) {
-          bgVideo.style.display = "block";
+          videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
 
-          if (bgVideo.readyState >= 2) {
-            bgVideo.currentTime = 0;
-            bgVideo.play();
+          if (videoEl.readyState >= 2) {
+            videoEl.currentTime = 0;
+            videoEl.play();
           } else {
-            bgVideo.addEventListener("canplay", () => {
-              bgVideo.currentTime = 0;
-              bgVideo.play();
+            videoEl.addEventListener("canplay", () => {
+              videoEl.currentTime = 0;
+              videoEl.play();
             }, { once: true });
           }
 
           videoTriggered = true;
         }
 
-        if (videoTriggered && !bgVideo.paused && player === activeAudio) {
+        if (videoTriggered && !videoEl.paused && player === activeAudio) {
           const videoOffset = player.currentTime - trigger;
-          if (Math.abs(bgVideo.currentTime - videoOffset) > 0.3) {
-            bgVideo.currentTime = videoOffset;
+          if (Math.abs(videoEl.currentTime - videoOffset) > 0.3) {
+            videoEl.currentTime = videoOffset;
           }
         }
 
         if (player.ended) {
-          bgVideo.pause();
-          bgVideo.style.display = "none";
+          videoEl.pause();
+          videoEl.style.display = "none";
+          title.textContent = "Music Player";
           videoTriggered = false;
-          title.textContent = "🎧 Music Player";
         }
       });
 
       player.addEventListener("ended", () => {
-        bgVideo.pause();
-        bgVideo.style.display = "none";
-        title.textContent = "🎧 Music Player";
+        videoEl.pause();
+        videoEl.style.display = "none";
+        title.textContent = "Music Player";
         videoTriggered = false;
       });
     });
