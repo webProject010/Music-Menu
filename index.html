@@ -1,159 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Music Player Menu</title>
-  <style>
-    body {
-      background-color: #121212;
-      color: #ffffff;
-      font-family: "Segoe UI", sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 40px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    #bg-video {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      z-index: -1;
-      display: none;
-    }
-
-    h1 {
-      font-size: 2em;
-      margin-bottom: 20px;
-    }
-
-    .music-container {
-      background-color: #1f1f1f;
-      border-radius: 15px;
-      padding: 25px;
-      width: 320px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      z-index: 1;
-    }
-
-    .track {
-      background-color: #2a2a2a;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 10px;
-    }
-
-    .track-title {
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-
-    audio {
-      width: 100%;
-      border-radius: 8px;
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Music + Video Sync</title>
+  <style>
+    body { font-family: sans-serif; background: #fff; padding: 20px; text-align: center; }
+    video { width: 100%; max-width: 720px; margin-bottom: 20px; }
+    audio { width: 100%; max-width: 720px; margin: 10px 0; }
+  </style>
 </head>
 <body>
 
-  <!-- Background video -->
-  <video id="bg-video" muted>
-    <source src="https://files.catbox.moe/i8tyq7.mp4" type="video/mp4" />
-    Your browser does not support the video tag.
-  </video>
+  <video id="video" controls>
+    <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
 
-  <h1>🎧 Music Player</h1>
+  <h3>🎧 Music Player</h3>
+  <audio id="audio1" controls>
+    <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
+  <audio controls>
+    <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mpeg">
+  </audio>
+  <audio controls>
+    <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mpeg">
+  </audio>
 
-  <div class="music-container">
-    <div class="track">
-      <div class="track-title">Irokz - Funk Universo</div>
-      <audio id="funkAudio" controls>
-        <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
-        Your browser does not support the audio element.
-      </audio>
-    </div>
+  <script>
+    const video = document.getElementById("video");
+    const audio = document.getElementById("audio1");
 
-    <div class="track">
-      <div class="track-title">Justin Bieber - STAY Remix</div>
-      <audio controls>
-        <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
-        Your browser does not support the audio element.
-      </audio>
-    </div>
+    let syncing = false;
 
-    <div class="track">
-      <div class="track-title">Sinammota - Girl A</div>
-      <audio controls>
-        <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
-        Your browser does not support the audio element.
-      </audio>
-    </div>
-  </div>
+    video.addEventListener("play", () => {
+      if (!syncing) {
+        syncing = true;
+        if (video.currentTime < 72) {
+          video.currentTime = 72;
+        }
+        audio.currentTime = video.currentTime;
+        audio.play();
+      }
+    });
 
-  <script>
-    const allPlayers = document.querySelectorAll("audio");
-    const funkAudio = document.getElementById("funkAudio");
-    const bgVideo = document.getElementById("bg-video");
+    video.addEventListener("pause", () => {
+      audio.pause();
+    });
 
-    let videoShown = false;
+    video.addEventListener("seeking", () => {
+      audio.currentTime = video.currentTime;
+    });
 
-    // Pause semua audio lain saat satu diputar
-    allPlayers.forEach(player => {
-      player.addEventListener("play", () => {
-        allPlayers.forEach(other => {
-          if (other !== player) other.pause();
-        });
-      });
-    });
-
-    // Sinkronisasi video dan audio
-    function syncVideoToAudio() {
-      const syncTime = funkAudio.currentTime - 72;
-      if (syncTime >= 0) {
-        bgVideo.currentTime = syncTime;
-      }
-    }
-
-    funkAudio.addEventListener("play", () => {
-      if (funkAudio.currentTime >= 72) {
-        syncVideoToAudio();
-        bgVideo.style.display = "block";
-        bgVideo.play();
-      }
-    });
-
-    funkAudio.addEventListener("pause", () => {
-      bgVideo.pause();
-    });
-
-    funkAudio.addEventListener("ended", () => {
-      bgVideo.pause();
-      bgVideo.style.display = "none";
-      videoShown = false;
-    });
-
-    funkAudio.addEventListener("timeupdate", () => {
-      if (funkAudio.currentTime >= 72) {
-        if (!videoShown) {
-          bgVideo.style.display = "block";
-          syncVideoToAudio();
-          bgVideo.play();
-          videoShown = true;
-        } else {
-          syncVideoToAudio();
-        }
-      } else {
-        bgVideo.pause();
-        bgVideo.style.display = "none";
-        videoShown = false;
-      }
-    });
-  </script>
-
+    video.addEventListener("timeupdate", () => {
+      if (Math.abs(video.currentTime - audio.currentTime) > 0.3) {
+        audio.currentTime = video.currentTime;
+      }
+    });
+  </script>
 </body>
 </html>
