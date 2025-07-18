@@ -114,7 +114,7 @@
     const title = document.getElementById("title");
 
     let videoTriggered = false;
-    const triggerTime = 73.2; // detik saat video mulai
+    const triggerTime = 73.3; // detik saat video mulai
 
     // Pause audio lain saat salah satu diputar
     allPlayers.forEach(player => {
@@ -164,7 +164,7 @@
     funkAudio.addEventListener("play", () => {
       if (videoTriggered && bgVideo.paused) {
         bgVideo.play();
-        title.textContent = "🚨 VIDEO MODE";
+        title.textContent = "EASTER EGG MODE >:)";
       }
     });
   </script>
