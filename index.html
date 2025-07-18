@@ -1,188 +1,152 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Music Player Menu</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Music Player</title>
   <style>
-    * { box-sizing: border-box; }
-
     body {
-      background-color: #121212;
-      color: #ffffff;
-      font-family: "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      overflow-x: hidden;
+      font-family: Arial, sans-serif;
     }
-
-    h1 {
-      font-size: 5vw;
-      margin: 5vw 0 3vw;
-      text-align: center;
-      z-index: 1;
-    }
-
-    .music-container {
-      background-color: #1f1f1fdd;
-      border-radius: 15px;
-      padding: 5vw;
-      width: 90%;
-      max-width: 500px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      z-index: 1;
-    }
-
-    .track {
-      background-color: #2a2a2a;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 10px;
-    }
-
-    .track-title {
-      font-weight: bold;
+    .video-container {
+      position: relative;
+      max-width: 100%;
+      overflow: hidden;
+      display: none;
       margin-bottom: 10px;
-      font-size: 1.2em;
     }
-
-    audio {
+    video {
       width: 100%;
-      border-radius: 8px;
+      height: auto;
+      display: block;
     }
-
-    video.bg-video {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      z-index: -1;
+    .warning {
+      color: red;
+      font-size: 12px;
       display: none;
     }
   </style>
 </head>
 <body>
 
-  <h1 id="title">Music Player</h1>
+<h2>Music Player</h2>
 
-  <video id="video-funk" class="bg-video" muted preload="auto">
-    <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
+<div class="video-container" id="videoContainer">
+  <video id="video" preload="auto">
+    <source src="https://webproject010.github.io/Music-Media/JOJO-T3.mp4" type="video/mp4">
+    Your browser does not support the video tag.
   </video>
+  <div class="warning" id="warningText">Maaf, perangkat anda belum siap melakukan tindakan cepat ini.</div>
+</div>
 
-  <video id="video-stay" class="bg-video" muted preload="auto">
-    <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
-  </video>
+<audio id="audio1" controls>
+  <source src="https://files.catbox.moe/dz2qsc.mp3" type="audio/mpeg">
+</audio>
 
-  <video id="video-girl" class="bg-video" muted preload="auto">
-    <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
-  </video>
+<audio id="audio2" controls>
+  <source src="https://files.catbox.moe/0ixp2e.mp3" type="audio/mpeg">
+</audio>
 
-  <div class="music-container">
-    <div class="track">
-      <div class="track-title">Irokz - Funk Universo</div>
-      <audio controls data-trigger="73.3" data-video="video-funk">
-        <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
-      </audio>
-    </div>
+<audio id="audio3" controls>
+  <source src="https://files.catbox.moe/6jj0o1.mp3" type="audio/mpeg">
+</audio>
 
-    <div class="track">
-      <div class="track-title">Justin Bieber - STAY Remix</div>
-      <audio controls data-trigger="25.3" data-video="video-stay">
-        <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
-      </audio>
-    </div>
+<script>
+  const video = document.getElementById('video');
+  const videoContainer = document.getElementById('videoContainer');
+  const warningText = document.getElementById('warningText');
+  const audios = document.querySelectorAll('audio');
 
-    <div class="track">
-      <div class="track-title">Sinammota - Girl A</div>
-      <audio controls data-trigger="69" data-video="video-girl">
-        <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
-      </audio>
-    </div>
-  </div>
+  const videoTriggers = [
+    { audio: audios[0], start: 1.0, end: 5.0 },
+    { audio: audios[1], start: 1.0, end: 6.0 },
+    { audio: audios[2], start: 2.0, end: 7.0 },
+  ];
 
-  <script>
-    const allPlayers = document.querySelectorAll("audio");
-    const allVideos = document.querySelectorAll("video.bg-video");
-    const title = document.getElementById("title");
+  let activeAudio = null;
+  let trigger = null;
+  let syncInterval;
 
-    let activeAudio = null;
-    let activeVideo = null;
-    let triggerTime = 0;
-    let videoShown = false;
+  function hideVideo() {
+    video.pause();
+    videoContainer.style.display = 'none';
+    warningText.style.display = 'none';
+  }
 
-    allPlayers.forEach(player => {
-      const trigger = parseFloat(player.dataset.trigger);
-      const videoId = player.dataset.video;
-      const videoEl = document.getElementById(videoId);
+  function showVideo() {
+    videoContainer.style.display = 'block';
+  }
 
-      player.addEventListener("play", () => {
-        // Pause others
-        allPlayers.forEach(p => { if (p !== player) p.pause(); });
-        allVideos.forEach(v => {
-          if (v !== videoEl) {
-            v.pause();
-            v.style.display = "none";
-          }
-        });
-
-        activeAudio = player;
-        activeVideo = videoEl;
-        triggerTime = trigger;
-        videoShown = false;
-      });
-
-      player.addEventListener("pause", () => {
-        if (!player.ended && activeVideo && !activeVideo.paused) {
-          activeVideo.pause();
-          title.textContent = "Music Player";
-        }
-      });
-
-      player.addEventListener("timeupdate", () => {
-        if (!activeAudio || !activeVideo) return;
-
-        const current = activeAudio.currentTime;
-
-        if (!videoShown && current >= triggerTime) {
-          activeVideo.style.display = "block";
-          title.textContent = "EASTER EGG FOUND";
-          activeVideo.currentTime = current - triggerTime;
-          activeVideo.play();
-          videoShown = true;
-        }
-
-        if (videoShown && !activeVideo.paused) {
-          const expectedTime = current - triggerTime;
-          if (Math.abs(activeVideo.currentTime - expectedTime) > 0.3) {
-            activeVideo.currentTime = expectedTime;
-          }
-        }
-
-        // Hide video if ended
-        if (activeVideo && activeVideo.currentTime >= activeVideo.duration) {
-          activeVideo.pause();
-          activeVideo.style.display = "none";
-          title.textContent = "Music Player";
-          videoShown = false;
-        }
-      });
-
-      player.addEventListener("ended", () => {
-        if (activeVideo) {
-          activeVideo.pause();
-          activeVideo.style.display = "none";
-        }
-        title.textContent = "Music Player";
-        videoShown = false;
-      });
+  function resetAll() {
+    audios.forEach(a => {
+      a.pause();
+      a.currentTime = 0;
     });
-  </script>
+    hideVideo();
+    clearInterval(syncInterval);
+  }
+
+  audios.forEach(audio => {
+    audio.addEventListener('play', () => {
+      resetAll();
+      audio.play();
+      activeAudio = audio;
+      trigger = videoTriggers.find(t => t.audio === audio);
+
+      if (trigger) {
+        syncInterval = setInterval(() => {
+          const currentTime = activeAudio.currentTime;
+
+          if (currentTime >= trigger.start && currentTime <= trigger.end) {
+            showVideo();
+
+            if (Math.abs(video.currentTime - (currentTime - trigger.start)) > 0.3) {
+              try {
+                video.currentTime = currentTime - trigger.start;
+              } catch {
+                warningText.style.display = 'block';
+              }
+            }
+
+            if (video.paused) {
+              try {
+                video.play();
+              } catch {
+                warningText.style.display = 'block';
+              }
+            }
+          } else {
+            hideVideo();
+          }
+
+          // Auto-hide if video ends
+          if (video.ended || currentTime > trigger.end) {
+            hideVideo();
+          }
+        }, 100);
+      }
+    });
+
+    audio.addEventListener('pause', () => {
+      video.pause();
+    });
+
+    audio.addEventListener('seeking', () => {
+      if (trigger) {
+        const seekPos = audio.currentTime;
+        if (seekPos >= trigger.start && seekPos <= trigger.end) {
+          try {
+            video.currentTime = seekPos - trigger.start;
+          } catch {
+            warningText.style.display = 'block';
+          }
+        }
+      }
+    });
+  });
+
+  video.addEventListener('ended', () => {
+    hideVideo();
+  });
+</script>
 
 </body>
 </html>
