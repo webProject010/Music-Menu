@@ -71,16 +71,16 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video untuk setiap lagu -->
-  <video id="video-funk" class="bg-video" muted preload="auto">
+  <!-- Video masing-masing lagu -->
+  <video id="video-funk" class="bg-video" muted>
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-stay" class="bg-video" muted preload="auto">
+  <video id="video-stay" class="bg-video" muted>
     <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-girl" class="bg-video" muted preload="auto">
+  <video id="video-girl" class="bg-video" muted>
     <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
   </video>
 
@@ -112,31 +112,26 @@
     const allVideos = document.querySelectorAll("video.bg-video");
     const title = document.getElementById("title");
 
-    let activeAudio = null;
-    let activeVideo = null;
-    let videoTriggered = false;
-
     allPlayers.forEach(player => {
       const trigger = parseFloat(player.dataset.trigger);
       const videoId = player.dataset.video;
       const videoEl = document.getElementById(videoId);
+      let videoStarted = false;
+
+      const resetAllVideos = () => {
+        allVideos.forEach(v => {
+          v.pause();
+          v.style.display = "none";
+        });
+        title.textContent = "Music Player";
+      };
 
       player.addEventListener("play", () => {
-        // Stop semua audio dan video lain
         allPlayers.forEach(other => {
           if (other !== player) other.pause();
         });
-
-        allVideos.forEach(v => {
-          if (v !== videoEl) {
-            v.pause();
-            v.style.display = "none";
-          }
-        });
-
-        activeAudio = player;
-        activeVideo = videoEl;
-        videoTriggered = false;
+        resetAllVideos();
+        videoStarted = false;
       });
 
       player.addEventListener("pause", () => {
@@ -147,45 +142,47 @@
       });
 
       player.addEventListener("timeupdate", () => {
-        const currentTime = player.currentTime;
-
-        if (!videoTriggered && currentTime >= trigger) {
+        if (!videoStarted && player.currentTime >= trigger) {
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
-          videoEl.currentTime = currentTime - trigger;
-          videoEl.play().catch(() => {});
-
-          videoTriggered = true;
+          videoEl.currentTime = 0;
+          videoEl.play().catch(() => {
+            videoEl.style.display = "none";
+          });
+          videoStarted = true;
         }
 
-        if (videoTriggered && player === activeAudio && !videoEl.paused) {
-          const offset = currentTime - trigger;
-          if (Math.abs(videoEl.currentTime - offset) > 0.3) {
-            videoEl.currentTime = offset;
+        // Sinkronisasi ringan tanpa request berulang
+        if (videoStarted && !videoEl.paused && player === document.querySelector("audio:playing")) {
+          const targetTime = player.currentTime - trigger;
+          if (Math.abs(videoEl.currentTime - targetTime) > 0.4) {
+            videoEl.currentTime = targetTime;
           }
-        }
-
-        if (videoEl.ended) {
-          videoEl.pause();
-          videoEl.style.display = "none";
-          title.textContent = "Music Player";
         }
 
         if (player.ended) {
           videoEl.pause();
           videoEl.style.display = "none";
           title.textContent = "Music Player";
-          videoTriggered = false;
+          videoStarted = false;
         }
       });
 
-      player.addEventListener("ended", () => {
-        videoEl.pause();
+      videoEl.addEventListener("ended", () => {
         videoEl.style.display = "none";
         title.textContent = "Music Player";
-        videoTriggered = false;
+      });
+    });
+
+    // Tambahan ringan: deteksi audio yang sedang play
+    document.querySelectorAll("audio").forEach(audio => {
+      audio.addEventListener("playing", () => {
+        document.querySelectorAll("audio").forEach(a => {
+          if (a !== audio) a.pause();
+        });
       });
     });
   </script>
+
 </body>
 </html>
