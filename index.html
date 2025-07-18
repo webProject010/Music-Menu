@@ -63,7 +63,7 @@
 
   let activeAudio = null;
   let trigger = null;
-  let syncInterval;
+  let syncInterval = null;
 
   function hideVideo() {
     video.pause();
@@ -77,75 +77,93 @@
 
   function resetAll() {
     audios.forEach(a => {
-      a.pause();
-      a.currentTime = 0;
+      if (a !== activeAudio) {
+        a.pause();
+        a.currentTime = 0;
+      }
     });
     hideVideo();
     clearInterval(syncInterval);
   }
 
+  function setupSync(audio) {
+    activeAudio = audio;
+    trigger = videoTriggers.find(t => t.audio === audio);
+
+    if (!trigger) return;
+
+    clearInterval(syncInterval);
+
+    syncInterval = setInterval(() => {
+      const aTime = activeAudio.currentTime;
+
+      // Jika tidak di dalam range trigger, sembunyikan video
+      if (aTime < trigger.start || aTime > trigger.end) {
+        hideVideo();
+        return;
+      }
+
+      // Tampilkan video jika waktu sesuai
+      showVideo();
+
+      const targetVideoTime = aTime - trigger.start;
+
+      // Cek apakah video tidak sinkron >0.3 detik
+      if (Math.abs(video.currentTime - targetVideoTime) > 0.3) {
+        try {
+          video.currentTime = targetVideoTime;
+        } catch (e) {
+          warningText.style.display = 'block';
+        }
+      }
+
+      // Play video jika belum main
+      if (video.paused) {
+        try {
+          video.play();
+        } catch (e) {
+          warningText.style.display = 'block';
+        }
+      }
+
+      // Auto-hide jika video selesai
+      if (video.ended || aTime > trigger.end) {
+        hideVideo();
+      }
+    }, 150);
+  }
+
   audios.forEach(audio => {
     audio.addEventListener('play', () => {
       resetAll();
-      audio.play();
-      activeAudio = audio;
-      trigger = videoTriggers.find(t => t.audio === audio);
-
-      if (trigger) {
-        syncInterval = setInterval(() => {
-          const currentTime = activeAudio.currentTime;
-
-          if (currentTime >= trigger.start && currentTime <= trigger.end) {
-            showVideo();
-
-            if (Math.abs(video.currentTime - (currentTime - trigger.start)) > 0.3) {
-              try {
-                video.currentTime = currentTime - trigger.start;
-              } catch {
-                warningText.style.display = 'block';
-              }
-            }
-
-            if (video.paused) {
-              try {
-                video.play();
-              } catch {
-                warningText.style.display = 'block';
-              }
-            }
-          } else {
-            hideVideo();
-          }
-
-          // Auto-hide if video ends
-          if (video.ended || currentTime > trigger.end) {
-            hideVideo();
-          }
-        }, 100);
-      }
+      setupSync(audio);
     });
 
     audio.addEventListener('pause', () => {
-      video.pause();
+      if (trigger && audio === activeAudio) {
+        video.pause();
+      }
     });
 
     audio.addEventListener('seeking', () => {
-      if (trigger) {
-        const seekPos = audio.currentTime;
-        if (seekPos >= trigger.start && seekPos <= trigger.end) {
+      if (trigger && audio === activeAudio) {
+        const pos = audio.currentTime;
+        if (pos >= trigger.start && pos <= trigger.end) {
           try {
-            video.currentTime = seekPos - trigger.start;
-          } catch {
+            video.currentTime = pos - trigger.start;
+            if (video.paused) video.play();
+            showVideo();
+          } catch (e) {
             warningText.style.display = 'block';
           }
+        } else {
+          hideVideo();
         }
       }
     });
   });
 
-  video.addEventListener('ended', () => {
-    hideVideo();
-  });
+  video.addEventListener('ended', hideVideo);
 </script>
 
 </body>
