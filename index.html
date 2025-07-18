@@ -71,16 +71,15 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video masing-masing lagu -->
-  <video id="video-funk" class="bg-video" muted preload="auto">
+  <video id="video-funk" class="bg-video" muted>
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-stay" class="bg-video" muted preload="auto">
+  <video id="video-stay" class="bg-video" muted>
     <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-girl" class="bg-video" muted preload="auto">
+  <video id="video-girl" class="bg-video" muted>
     <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
   </video>
 
@@ -114,19 +113,7 @@
 
     let activeAudio = null;
     let activeVideo = null;
-    let videoTriggered = false;
-
-    function syncLoop() {
-      if (activeAudio && activeVideo && videoTriggered) {
-        const offset = activeAudio.currentTime - parseFloat(activeAudio.dataset.trigger);
-        if (Math.abs(activeVideo.currentTime - offset) > 0.2) {
-          activeVideo.currentTime = offset;
-        }
-      }
-      requestAnimationFrame(syncLoop);
-    }
-
-    syncLoop();
+    let syncInterval = null;
 
     allPlayers.forEach(player => {
       const trigger = parseFloat(player.dataset.trigger);
@@ -134,10 +121,8 @@
       const videoEl = document.getElementById(videoId);
 
       player.addEventListener("play", () => {
-        allPlayers.forEach(other => {
-          if (other !== player) other.pause();
-        });
-
+        // Matikan semua yang lain
+        allPlayers.forEach(p => { if (p !== player) p.pause(); });
         allVideos.forEach(v => {
           if (v !== videoEl) {
             v.pause();
@@ -147,55 +132,43 @@
 
         activeAudio = player;
         activeVideo = videoEl;
-        videoTriggered = false;
+        title.textContent = "Music Player";
+
+        clearInterval(syncInterval);
+        syncInterval = setInterval(() => {
+          if (player.paused || player.ended) return;
+          if (player.currentTime >= trigger) {
+            if (videoEl.style.display === "none") {
+              videoEl.style.display = "block";
+              title.textContent = "EASTER EGG FOUND";
+              videoEl.currentTime = 0;
+              videoEl.play();
+            }
+
+            let offset = player.currentTime - trigger;
+            if (Math.abs(videoEl.currentTime - offset) > 0.3) {
+              videoEl.currentTime = offset;
+            }
+
+            if (videoEl.ended) {
+              videoEl.style.display = "none";
+              title.textContent = "Music Player";
+            }
+          }
+        }, 300);
       });
 
       player.addEventListener("pause", () => {
-        if (!player.ended && !videoEl.paused) {
-          videoEl.pause();
-          title.textContent = "Music Player";
-        }
-      });
-
-      player.addEventListener("timeupdate", () => {
-        if (!videoTriggered && player.currentTime >= trigger) {
-          videoEl.style.display = "block";
-          title.textContent = "EASTER EGG FOUND";
-
-          if (videoEl.readyState >= 2) {
-            videoEl.currentTime = 0;
-            videoEl.play();
-          } else {
-            videoEl.addEventListener("canplay", () => {
-              videoEl.currentTime = 0;
-              videoEl.play();
-            }, { once: true });
-          }
-
-          videoTriggered = true;
-        }
-
-        if (player.ended) {
-          videoEl.pause();
-          videoEl.style.display = "none";
-          title.textContent = "Music Player";
-          videoTriggered = false;
-        }
+        if (videoEl && !videoEl.paused) videoEl.pause();
       });
 
       player.addEventListener("ended", () => {
-        videoEl.pause();
-        videoEl.style.display = "none";
+        if (videoEl) {
+          videoEl.pause();
+          videoEl.style.display = "none";
+        }
         title.textContent = "Music Player";
-        videoTriggered = false;
-      });
-    });
-
-    // Hide video jika selesai
-    allVideos.forEach(video => {
-      video.addEventListener("ended", () => {
-        video.style.display = "none";
-        title.textContent = "Music Player";
+        clearInterval(syncInterval);
       });
     });
   </script>
