@@ -5,9 +5,7 @@
   <title>Music Player Menu</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       background-color: #121212;
@@ -18,7 +16,6 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
       min-height: 100vh;
       overflow-x: hidden;
     }
@@ -38,7 +35,6 @@
       max-width: 500px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       z-index: 1;
-      overflow-y: auto;
     }
 
     .track {
@@ -84,88 +80,91 @@
   <div class="music-container">
     <div class="track">
       <div class="track-title">Irokz - Funk Universo</div>
-      <audio id="funkAudio" controls>
+      <audio controls data-trigger="73.3">
         <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
-        Your browser does not support the audio element.
       </audio>
     </div>
 
     <div class="track">
       <div class="track-title">Justin Bieber - STAY Remix</div>
-      <audio id="stayAudio" controls>
+      <audio controls data-trigger="65">
         <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
-        Your browser does not support the audio element.
       </audio>
     </div>
 
     <div class="track">
       <div class="track-title">Sinammota - Girl A</div>
-      <audio id="girlAudio" controls>
+      <audio controls data-trigger="69">
         <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
-        Your browser does not support the audio element.
       </audio>
     </div>
   </div>
 
   <script>
     const allPlayers = document.querySelectorAll("audio");
-    const funkAudio = document.getElementById("funkAudio");
     const bgVideo = document.getElementById("bg-video");
     const title = document.getElementById("title");
 
+    let activeAudio = null;
     let videoTriggered = false;
-    const triggerTime = 73.3; // detik saat video mulai
 
-    // Pause audio lain saat salah satu diputar
     allPlayers.forEach(player => {
+      const trigger = parseFloat(player.dataset.trigger);
+
       player.addEventListener("play", () => {
         allPlayers.forEach(other => {
           if (other !== player) other.pause();
         });
+
+        activeAudio = player;
       });
-    });
 
-    // Sinkronisasi video & audio tanpa lag
-    funkAudio.addEventListener("timeupdate", () => {
-      if (!videoTriggered && funkAudio.currentTime >= triggerTime) {
-        bgVideo.style.display = "block";
-        title.textContent = "🚨 VIDEO MODE";
+      player.addEventListener("pause", () => {
+        if (!player.ended && !bgVideo.paused) {
+          bgVideo.pause();
+          title.textContent = "🎧 Music Player";
+        }
+      });
 
-        if (bgVideo.readyState >= 2) {
-          bgVideo.currentTime = 0;
-          bgVideo.play();
-        } else {
-          bgVideo.addEventListener("canplay", () => {
+      player.addEventListener("timeupdate", () => {
+        if (!videoTriggered && player.currentTime >= trigger) {
+          bgVideo.style.display = "block";
+          title.textContent = "EASTER EGG FOUND";
+
+          if (bgVideo.readyState >= 2) {
             bgVideo.currentTime = 0;
             bgVideo.play();
-          }, { once: true });
+          } else {
+            bgVideo.addEventListener("canplay", () => {
+              bgVideo.currentTime = 0;
+              bgVideo.play();
+            }, { once: true });
+          }
+
+          videoTriggered = true;
         }
 
-        videoTriggered = true;
-      }
+        if (videoTriggered && !bgVideo.paused && player === activeAudio) {
+          const videoOffset = player.currentTime - trigger;
+          if (Math.abs(bgVideo.currentTime - videoOffset) > 0.3) {
+            bgVideo.currentTime = videoOffset;
+          }
+        }
 
-      if (funkAudio.ended) {
+        if (player.ended) {
+          bgVideo.pause();
+          bgVideo.style.display = "none";
+          videoTriggered = false;
+          title.textContent = "🎧 Music Player";
+        }
+      });
+
+      player.addEventListener("ended", () => {
         bgVideo.pause();
         bgVideo.style.display = "none";
+        title.textContent = "🎧 Music Player";
         videoTriggered = false;
-        title.textContent = "🎧 Music Player";
-      }
-    });
-
-    // Hentikan video jika audio dijeda
-    funkAudio.addEventListener("pause", () => {
-      if (!funkAudio.ended && !bgVideo.paused) {
-        bgVideo.pause();
-        title.textContent = "🎧 Music Player";
-      }
-    });
-
-    // Lanjutkan video kalau audio dilanjutkan
-    funkAudio.addEventListener("play", () => {
-      if (videoTriggered && bgVideo.paused) {
-        bgVideo.play();
-        title.textContent = "EASTER EGG MODE >:)";
-      }
+      });
     });
   </script>
 
