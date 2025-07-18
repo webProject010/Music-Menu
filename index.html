@@ -65,35 +65,22 @@
       z-index: -1;
       display: none;
     }
-
-    .error-text {
-      position: fixed;
-      bottom: 5vh;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.7);
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 0.9em;
-      color: #ff5555;
-      display: none;
-      z-index: 5;
-    }
   </style>
 </head>
 <body>
 
   <h1 id="title">Music Player</h1>
 
-  <video id="video-funk" class="bg-video" muted playsinline preload="auto">
+  <!-- Video masing-masing lagu -->
+  <video id="video-funk" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-stay" class="bg-video" muted playsinline preload="auto">
+  <video id="video-stay" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
   </video>
 
-  <video id="video-girl" class="bg-video" muted playsinline preload="auto">
+  <video id="video-girl" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
   </video>
 
@@ -120,25 +107,26 @@
     </div>
   </div>
 
-  <div id="errorMsg" class="error-text">
-    Maaf perangkat anda belum siap melakukan tindakan cepat ini
-  </div>
-
   <script>
     const allPlayers = document.querySelectorAll("audio");
     const allVideos = document.querySelectorAll("video.bg-video");
     const title = document.getElementById("title");
-    const errorMsg = document.getElementById("errorMsg");
 
     let activeAudio = null;
     let activeVideo = null;
     let videoTriggered = false;
-    let lastCheck = 0;
 
-    function showError() {
-      errorMsg.style.display = "block";
-      setTimeout(() => errorMsg.style.display = "none", 3000);
+    function syncLoop() {
+      if (activeAudio && activeVideo && videoTriggered) {
+        const offset = activeAudio.currentTime - parseFloat(activeAudio.dataset.trigger);
+        if (Math.abs(activeVideo.currentTime - offset) > 0.2) {
+          activeVideo.currentTime = offset;
+        }
+      }
+      requestAnimationFrame(syncLoop);
     }
+
+    syncLoop();
 
     allPlayers.forEach(player => {
       const trigger = parseFloat(player.dataset.trigger);
@@ -163,63 +151,54 @@
       });
 
       player.addEventListener("pause", () => {
-        if (!player.ended && activeVideo && !activeVideo.paused) {
-          activeVideo.pause();
+        if (!player.ended && !videoEl.paused) {
+          videoEl.pause();
           title.textContent = "Music Player";
         }
       });
 
-      player.addEventListener("ended", () => {
-        if (activeVideo) {
-          activeVideo.pause();
-          activeVideo.style.display = "none";
-        }
-        title.textContent = "Music Player";
-        videoTriggered = false;
-      });
-
       player.addEventListener("timeupdate", () => {
-        const now = performance.now();
-        if (now - lastCheck < 200) return;
-        lastCheck = now;
-
         if (!videoTriggered && player.currentTime >= trigger) {
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
 
-          function playVideoAtCorrectTime() {
-            try {
-              const offset = player.currentTime - trigger;
-              videoEl.currentTime = offset > 0 ? offset : 0;
-              videoEl.play().catch(showError);
-            } catch (e) {
-              showError();
-            }
-          }
-
           if (videoEl.readyState >= 2) {
-            playVideoAtCorrectTime();
+            videoEl.currentTime = 0;
+            videoEl.play();
           } else {
-            videoEl.addEventListener("canplay", playVideoAtCorrectTime, { once: true });
+            videoEl.addEventListener("canplay", () => {
+              videoEl.currentTime = 0;
+              videoEl.play();
+            }, { once: true });
           }
 
           videoTriggered = true;
         }
 
-        if (videoTriggered && player === activeAudio && !activeVideo.paused) {
-          const offset = player.currentTime - trigger;
-          if (Math.abs(activeVideo.currentTime - offset) > 0.5) {
-            try {
-              activeVideo.currentTime = offset;
-            } catch (e) {
-              player.pause();
-              activeVideo.pause();
-              showError();
-            }
-          }
+        if (player.ended) {
+          videoEl.pause();
+          videoEl.style.display = "none";
+          title.textContent = "Music Player";
+          videoTriggered = false;
         }
+      });
+
+      player.addEventListener("ended", () => {
+        videoEl.pause();
+        videoEl.style.display = "none";
+        title.textContent = "Music Player";
+        videoTriggered = false;
+      });
+    });
+
+    // Hide video jika selesai
+    allVideos.forEach(video => {
+      video.addEventListener("ended", () => {
+        video.style.display = "none";
+        title.textContent = "Music Player";
       });
     });
   </script>
+
 </body>
 </html>
