@@ -71,6 +71,7 @@
 
   <h1 id="title">Music Player</h1>
 
+  <!-- Video -->
   <video id="video-funk" class="bg-video" muted>
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
@@ -114,6 +115,7 @@
     let activeAudio = null;
     let activeVideo = null;
     let videoTriggered = false;
+    let seekTimeout = null;
 
     allPlayers.forEach(player => {
       const trigger = parseFloat(player.dataset.trigger);
@@ -144,17 +146,38 @@
         }
       });
 
+      player.addEventListener("seeking", () => {
+        clearTimeout(seekTimeout);
+        videoTriggered = false;
+        videoEl.pause();
+      });
+
+      player.addEventListener("seeked", () => {
+        clearTimeout(seekTimeout);
+        seekTimeout = setTimeout(() => {
+          if (player.currentTime >= trigger) {
+            videoEl.style.display = "block";
+            title.textContent = "EASTER EGG FOUND";
+            videoEl.currentTime = player.currentTime - trigger;
+            videoEl.play();
+            videoTriggered = true;
+          } else {
+            videoEl.style.display = "none";
+          }
+        }, 300); // delay agar lebih sinkron
+      });
+
       player.addEventListener("timeupdate", () => {
         if (!videoTriggered && player.currentTime >= trigger) {
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
 
           if (videoEl.readyState >= 2) {
-            videoEl.currentTime = 0;
+            videoEl.currentTime = player.currentTime - trigger;
             videoEl.play();
           } else {
             videoEl.addEventListener("canplay", () => {
-              videoEl.currentTime = 0;
+              videoEl.currentTime = player.currentTime - trigger;
               videoEl.play();
             }, { once: true });
           }
@@ -163,9 +186,9 @@
         }
 
         if (videoTriggered && !videoEl.paused && player === activeAudio) {
-          const videoOffset = player.currentTime - trigger;
-          if (Math.abs(videoEl.currentTime - videoOffset) > 0.3) {
-            videoEl.currentTime = videoOffset;
+          const offset = player.currentTime - trigger;
+          if (Math.abs(videoEl.currentTime - offset) > 0.3) {
+            videoEl.currentTime = offset;
           }
         }
 
@@ -183,8 +206,11 @@
         title.textContent = "Music Player";
         videoTriggered = false;
       });
+
+      videoEl.addEventListener("ended", () => {
+        videoEl.style.display = "none";
+      });
     });
   </script>
-
 </body>
 </html>
