@@ -1,188 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Music Player Menu</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    * { box-sizing: border-box; }
+  <meta charset="UTF-8" />
+  <title>Music Player Menu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; }
 
-    body {
-      background-color: #121212;
-      color: #ffffff;
-      font-family: "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
-    h1 {
-      font-size: 5vw;
-      margin: 5vw 0 3vw;
-      text-align: center;
-      z-index: 1;
-    }
+    h1 {
+      font-size: 5vw;
+      margin: 5vw 0 3vw;
+      text-align: center;
+      z-index: 1;
+    }
 
-    .music-container {
-      background-color: #1f1f1fdd;
-      border-radius: 15px;
-      padding: 5vw;
-      width: 90%;
-      max-width: 500px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      z-index: 1;
-    }
+    .music-container {
+      background-color: #1f1f1fdd;
+      border-radius: 15px;
+      padding: 5vw;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+    }
 
-    .track {
-      background-color: #2a2a2a;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 10px;
-    }
+    .track {
+      background-color: #2a2a2a;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 10px;
+    }
 
-    .track-title {
-      font-weight: bold;
-      margin-bottom: 10px;
-      font-size: 1.2em;
-    }
+    .track-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 1.2em;
+    }
 
-    audio {
-      width: 100%;
-      border-radius: 8px;
-    }
+    audio {
+      width: 100%;
+      border-radius: 8px;
+    }
 
-    video.bg-video {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      z-index: -1;
-      display: none;
-    }
-  </style>
+    video.bg-video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: -1;
+      display: none;
+    }
+  </style>
 </head>
 <body>
 
-  <h1 id="title">Music Player</h1>
+  <h1 id="title">Music Player</h1>
 
-  <!-- Video masing-masing lagu -->
-  <video id="video-funk" class="bg-video" muted>
-    <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
-  </video>
+  <!-- Video -->
+  <video id="video-funk" class="bg-video" muted>
+    <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
+  </video>
 
-  <video id="video-stay" class="bg-video" muted>
-    <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
-  </video>
+  <video id="video-stay" class="bg-video" muted>
+    <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
+  </video>
 
-  <video id="video-girl" class="bg-video" muted>
-    <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
-  </video>
+  <video id="video-girl" class="bg-video" muted>
+    <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
+  </video>
 
-  <div class="music-container">
-    <div class="track">
-      <div class="track-title">Irokz - Funk Universo</div>
-      <audio controls data-trigger="73.3" data-video="video-funk">
-        <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
-      </audio>
-    </div>
+  <!-- Audio Tracks -->
+  <div class="music-container">
+    <div class="track">
+      <div class="track-title">Irokz - Funk Universo</div>
+      <audio controls data-trigger="73.3" data-video="video-funk">
+        <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
+      </audio>
+    </div>
 
-    <div class="track">
-      <div class="track-title">Justin Bieber - STAY Remix</div>
-      <audio controls data-trigger="25.3" data-video="video-stay">
-        <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
-      </audio>
-    </div>
+    <div class="track">
+      <div class="track-title">Justin Bieber - STAY Remix</div>
+      <audio controls data-trigger="25.3" data-video="video-stay">
+        <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
+      </audio>
+    </div>
 
-    <div class="track">
-      <div class="track-title">Sinammota - Girl A</div>
-      <audio controls data-trigger="69" data-video="video-girl">
-        <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
-      </audio>
-    </div>
-  </div>
+    <div class="track">
+      <div class="track-title">Sinammota - Girl A</div>
+      <audio controls data-trigger="69" data-video="video-girl">
+        <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
+      </audio>
+    </div>
+  </div>
 
-  <script>
-    const allPlayers = document.querySelectorAll("audio");
-    const allVideos = document.querySelectorAll("video.bg-video");
-    const title = document.getElementById("title");
+  <script>
+    const allPlayers = document.querySelectorAll("audio");
+    const allVideos = document.querySelectorAll("video.bg-video");
+    const title = document.getElementById("title");
 
-    allPlayers.forEach(player => {
-      const trigger = parseFloat(player.dataset.trigger);
-      const videoId = player.dataset.video;
-      const videoEl = document.getElementById(videoId);
-      let videoStarted = false;
+    let activeAudio = null;
+    let activeVideo = null;
+    let videoTriggered = false;
 
-      const resetAllVideos = () => {
-        allVideos.forEach(v => {
-          v.pause();
-          v.style.display = "none";
-        });
-        title.textContent = "Music Player";
-      };
+    allPlayers.forEach(player => {
+      const trigger = parseFloat(player.dataset.trigger);
+      const videoId = player.dataset.video;
+      const videoEl = document.getElementById(videoId);
 
-      player.addEventListener("play", () => {
-        allPlayers.forEach(other => {
-          if (other !== player) other.pause();
-        });
-        resetAllVideos();
-        videoStarted = false;
-      });
+      // Saat audio diputar
+      player.addEventListener("play", () => {
+        allPlayers.forEach(other => { if (other !== player) other.pause(); });
+        allVideos.forEach(v => {
+          if (v !== videoEl) {
+            v.pause();
+            v.style.display = "none";
+          }
+        });
 
-      player.addEventListener("pause", () => {
-        if (!player.ended && !videoEl.paused) {
-          videoEl.pause();
-          title.textContent = "Music Player";
-        }
-      });
+        activeAudio = player;
+        activeVideo = videoEl;
+        videoTriggered = false;
+      });
 
-      player.addEventListener("timeupdate", () => {
-        if (!videoStarted && player.currentTime >= trigger) {
-          videoEl.style.display = "block";
-          title.textContent = "EASTER EGG FOUND";
-          videoEl.currentTime = 0;
-          videoEl.play().catch(() => {
-            videoEl.style.display = "none";
-          });
-          videoStarted = true;
-        }
+      // Saat audio di-pause
+      player.addEventListener("pause", () => {
+        if (!player.ended && !videoEl.paused) {
+          videoEl.pause();
+          title.textContent = "Music Player";
+        }
+      });
 
-        // Sinkronisasi ringan tanpa request berulang
-        if (videoStarted && !videoEl.paused && player === document.querySelector("audio:playing")) {
-          const targetTime = player.currentTime - trigger;
-          if (Math.abs(videoEl.currentTime - targetTime) > 0.4) {
-            videoEl.currentTime = targetTime;
-          }
-        }
+      // Update setiap detik
+      player.addEventListener("timeupdate", () => {
+        const currentTime = player.currentTime;
 
-        if (player.ended) {
-          videoEl.pause();
-          videoEl.style.display = "none";
-          title.textContent = "Music Player";
-          videoStarted = false;
-        }
-      });
+        if (!videoTriggered && currentTime >= trigger) {
+          videoEl.currentTime = 0;
+          videoEl.style.display = "block";
+          title.textContent = "EASTER EGG FOUND";
 
-      videoEl.addEventListener("ended", () => {
-        videoEl.style.display = "none";
-        title.textContent = "Music Player";
-      });
-    });
+          videoEl.play().catch(() => {
+            // Fallback jika gagal autoplay
+          });
 
-    // Tambahan ringan: deteksi audio yang sedang play
-    document.querySelectorAll("audio").forEach(audio => {
-      audio.addEventListener("playing", () => {
-        document.querySelectorAll("audio").forEach(a => {
-          if (a !== audio) a.pause();
-        });
-      });
-    });
-  </script>
+          videoTriggered = true;
+        }
+
+        // Sinkronisasi cepat dan ringan
+        if (videoTriggered && player === activeAudio && !videoEl.paused) {
+          const offset = currentTime - trigger;
+          if (Math.abs(videoEl.currentTime - offset) > 0.1) {
+            videoEl.currentTime = offset;
+          }
+        }
+
+        // Auto-hide saat audio selesai
+        if (player.ended) {
+          videoEl.pause();
+          videoEl.style.display = "none";
+          title.textContent = "Music Player";
+          videoTriggered = false;
+        }
+      });
+
+      // Auto-hide saat video selesai
+      videoEl.addEventListener("ended", () => {
+        videoEl.style.display = "none";
+        title.textContent = "Music Player";
+      });
+    });
+  </script>
 
 </body>
 </html>
