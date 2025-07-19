@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Sync Video Audio</title>
+  <title>Video Sync Booster</title>
   <style>
     body {
       margin: 0;
@@ -22,6 +22,9 @@
       height: 100%;
       object-fit: contain;
       display: none;
+      will-change: transform, opacity;
+      transform: translateZ(0);
+      backface-visibility: hidden;
     }
     audio {
       width: 100%;
@@ -41,8 +44,8 @@
 </head>
 <body>
   <div id="container">
-    <video id="video" src="https://files.catbox.moe/21926t.mp4"></video>
-    <audio id="audio" controls src="https://files.catbox.moe/72pt0n.mp3"></audio>
+    <video id="video" muted></video>
+    <audio id="audio" controls></audio>
     <div id="status">Status: idle</div>
   </div>
 
@@ -55,9 +58,18 @@
     const videoStart = 71.5;
     const videoEnd = 92;
 
-    // Persiapan awal video agar tidak lag saat tampil
+    // Set sumber video dan audio (720p)
+    video.src = 'https://files.catbox.moe/21926t.mp4';
+    audio.src = 'https://files.catbox.moe/72pt0n.mp3';
+
+    // Paksa decoding awal agar tidak lag
     video.preload = 'auto';
     video.load();
+    video.onloadeddata = () => {
+      video.currentTime = 0;
+      video.pause();
+      video.play().then(() => video.pause());
+    };
 
     function showVideo() {
       if (!showing) {
@@ -70,21 +82,23 @@
     function hideVideo() {
       if (showing) {
         video.pause();
-        video.currentTime = 0;
         video.style.display = 'none';
         showing = false;
-        status.textContent = 'Status: video disembunyikan';
+        status.textContent = 'Status: disembunyikan';
       }
     }
 
-    // Sinkronisasi video dan audio dengan delay kecil saat seek
+    function syncAndPlayVideo() {
+      video.currentTime = audio.currentTime - videoStart;
+      requestAnimationFrame(() => {
+        video.play().catch(() => {});
+        showVideo();
+      });
+    }
+
     audio.addEventListener('seeked', () => {
       if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
-        video.currentTime = audio.currentTime - videoStart;
-        setTimeout(() => {
-          video.play().catch(() => {});
-          showVideo();
-        }, 100);
+        syncAndPlayVideo();
       } else {
         hideVideo();
       }
@@ -92,11 +106,7 @@
 
     audio.addEventListener('play', () => {
       if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
-        video.currentTime = audio.currentTime - videoStart;
-        setTimeout(() => {
-          video.play().catch(() => {});
-          showVideo();
-        }, 100);
+        syncAndPlayVideo();
       }
     });
 
@@ -107,10 +117,8 @@
 
     audio.addEventListener('timeupdate', () => {
       if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
-        if (video.paused) {
-          video.currentTime = audio.currentTime - videoStart;
-          video.play().catch(() => {});
-        }
+        if (video.paused) syncAndPlayVideo();
+        else video.currentTime = audio.currentTime - videoStart;
         showVideo();
       } else {
         hideVideo();
