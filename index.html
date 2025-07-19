@@ -6,10 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * { box-sizing: border-box; }
-
     body {
-      background-color: #121212;
-      color: #ffffff;
+      background: #121212;
+      color: #fff;
       font-family: "Segoe UI", sans-serif;
       margin: 0; padding: 0;
       display: flex;
@@ -18,42 +17,37 @@
       min-height: 100vh;
       overflow-x: hidden;
     }
-
     h1 {
       font-size: 5vw;
       margin: 5vw 0 3vw;
       text-align: center;
       z-index: 1;
     }
-
     .music-container {
-      background-color: #1f1f1fdd;
+      background: rgba(31,31,31,0.85);
       border-radius: 15px;
       padding: 5vw;
       width: 90%;
       max-width: 500px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       z-index: 1;
+      position: relative;
     }
-
     .track {
-      background-color: #2a2a2a;
+      background: #2a2a2a;
       padding: 15px;
       margin-bottom: 20px;
       border-radius: 10px;
     }
-
     .track-title {
       font-weight: bold;
       margin-bottom: 10px;
       font-size: 1.2em;
     }
-
     audio {
       width: 100%;
       border-radius: 8px;
     }
-
     video.bg-video {
       position: fixed;
       top: 0; left: 0;
@@ -68,7 +62,7 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- videos (one per track) -->
+  <!-- Video elements (720p) -->
   <video id="video-funk" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
@@ -105,97 +99,120 @@
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
 
-    let activePlayer = null;
-    let activeVideo  = null;
-    let started      = false;
-    const prepOffset = 1.0;    // seconds before trigger to prepare
-    const delayPlay  = 150;    // ms delay before actual play
+    const prepOffset = 1.0;    // detik sebelum trigger untuk warm‑up
+    const throttleMs = 250;    // throttle timeupdate
+    let lastTimeUpdate = 0;
 
     players.forEach(p => {
-      const trigger = parseFloat(p.dataset.trigger);
-      const vid     = document.getElementById(p.dataset.video);
+      const trigger    = parseFloat(p.dataset.trigger);
+      const videoEl    = document.getElementById(p.dataset.video);
+      let prepared     = false;
+      let started      = false;
+      let syncId       = null;
 
-      // ensure video element is loaded
-      vid.load();
+      // warm‑up decoder 1 detik sebelum trigger
+      function warmUp() {
+        videoEl.currentTime = p.currentTime - trigger;
+        videoEl.play().then(()=>videoEl.pause()).catch(()=>{/*ignore*/});
+        prepared = true;
+      }
+
+      // sync per frame
+      function syncFrame() {
+        if (started && !videoEl.paused) {
+          const target = p.currentTime - trigger;
+          if (Math.abs(videoEl.currentTime - target) > 0.3) {
+            videoEl.currentTime = target;
+          }
+          syncId = requestAnimationFrame(syncFrame);
+        }
+      }
 
       p.addEventListener("play", () => {
         // pause others
         players.forEach(o => { if (o!==p) o.pause(); });
-        // hide all other videos
+        // hide other videos
         videos.forEach(v => {
-          if (v!==vid) { v.pause(); v.style.display="none"; }
+          if (v!==videoEl) {
+            v.pause();
+            v.style.display="none";
+          }
         });
-        activePlayer = p;
-        activeVideo  = vid;
-        started      = false;
+        prepared = started = false;
+        cancelAnimationFrame(syncId);
+        videoEl.load();
       });
 
       p.addEventListener("timeupdate", () => {
+        const now = performance.now();
+        if (now - lastTimeUpdate < throttleMs) return;
+        lastTimeUpdate = now;
+
         const t = p.currentTime;
 
-        // prepare before trigger
-        if (!started && t >= trigger - prepOffset && t < trigger) {
-          vid.currentTime = Math.max(0, t - trigger);
+        // warm-up
+        if (!prepared && t >= trigger - prepOffset && t < trigger) {
+          warmUp();
         }
 
-        // start video exactly at trigger
+        // start video at trigger
         if (!started && t >= trigger) {
           started = true;
-          vid.style.display = "block";
+          videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
-          setTimeout(() => {
-            vid.currentTime = t - trigger;
-            vid.play().catch(()=>{ /* silent */ });
-          }, delayPlay);
+          videoEl.currentTime = t - trigger;
+          videoEl.play().catch(()=>{/*ignore*/});
+          syncId = requestAnimationFrame(syncFrame);
         }
 
-        // gentle sync
-        if (started && !vid.paused) {
-          const desired = p.currentTime - trigger;
-          if (Math.abs(vid.currentTime - desired) > 0.3) {
-            vid.currentTime = desired;
-          }
-        }
-
-        // hide when audio ends
+        // hide if audio ends
         if (started && p.ended) {
-          vid.pause();
-          vid.style.display = "none";
-          title.textContent = "Music Player";
-          started = false;
+          videoEl.pause();
+          videoEl.style.display="none";
+          title.textContent="Music Player";
+          started = prepared = false;
+          cancelAnimationFrame(syncId);
         }
-      });
-
-      p.addEventListener("pause", () => {
-        if (started) vid.pause();
       });
 
       p.addEventListener("seeked", () => {
         const t = p.currentTime;
-        // if past trigger, show & sync immediately
         if (t >= trigger) {
+          if (!prepared) warmUp();
           if (!started) {
             started = true;
-            vid.style.display = "block";
+            videoEl.style.display = "block";
             title.textContent = "EASTER EGG FOUND";
+            syncId = requestAnimationFrame(syncFrame);
           }
-          vid.currentTime = t - trigger;
-          vid.play().catch(()=>{});
-        } else if (started) {
-          vid.pause();
-          vid.style.display = "none";
-          title.textContent = "Music Player";
-          started = false;
+          videoEl.currentTime = t - trigger;
+          videoEl.play().catch(()=>{/*ignore*/});
+        } else {
+          if (started) {
+            videoEl.pause();
+            videoEl.style.display="none";
+            title.textContent="Music Player";
+            started = prepared = false;
+            cancelAnimationFrame(syncId);
+          }
         }
       });
 
-      // if video naturally ends
-      vid.addEventListener("ended", () => {
-        vid.style.display = "none";
-        title.textContent = "Music Player";
+      p.addEventListener("pause", () => {
+        if (started) videoEl.pause();
+      });
+
+      p.addEventListener("play", () => {
+        if (started && videoEl.paused) {
+          videoEl.play().catch(()=>{/*ignore*/});
+        }
+      });
+
+      videoEl.addEventListener("ended", () => {
+        videoEl.style.display="none";
+        title.textContent="Music Player";
       });
     });
   </script>
-
 </body>
 </html>
