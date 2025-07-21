@@ -1,135 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <title>Sync Player</title>
+  <meta charset="UTF-8">
+  <title>Sync Video Audio</title>
   <style>
     body {
       margin: 0;
       background: black;
-      overflow: hidden;
+      color: white;
       font-family: sans-serif;
+      overflow: hidden;
     }
     #container {
       position: relative;
       width: 100vw;
       height: 100vh;
     }
-    video, audio {
+    video {
       position: absolute;
-      max-width: 100%;
-      max-height: 100%;
-    }
-    .hidden {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
       display: none;
+    }
+    audio {
+      width: 100%;
+      position: absolute;
+      bottom: 10px;
+      left: 0;
     }
     #status {
       position: absolute;
-      bottom: 5px;
-      left: 5px;
-      color: white;
-      font-size: 12px;
-      background: rgba(0,0,0,0.5);
-      padding: 2px 6px;
-      border-radius: 3px;
-      display: none; /* disembunyikan */
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
+      padding: 5px 10px;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
   <div id="container">
-    <video id="vid1" src="https://files.catbox.moe/21926t.mp4" preload="auto" class="hidden"></video>
-    <audio id="aud1" src="https://files.catbox.moe/t5zj2x.mp3" preload="auto"></audio>
+    <video id="video" src="https://files.catbox.moe/21926t.mp4"></video>
+    <audio id="audio" controls src="https://files.catbox.moe/72pt0n.mp3"></audio>
     <div id="status">Status: idle</div>
   </div>
 
   <script>
-    const video = document.getElementById('vid1');
-    const audio = document.getElementById('aud1');
+    const video = document.getElementById('video');
+    const audio = document.getElementById('audio');
     const status = document.getElementById('status');
-    const container = document.getElementById('container');
 
-    let syncOffset = 0.1; // delay kecil sinkronisasi
-    let lastSeekTime = 0;
+    let showing = false;
+    const videoStart = 71.5;
+    const videoEnd = 92;
 
-    const showVideoAt = 10; // detik kapan video muncul
-    const hideVideoAt = 90; // detik kapan video disembunyikan
-    let preparing = false;
+    // Persiapan awal video agar tidak lag saat tampil
+    video.preload = 'auto';
+    video.load();
 
-    function show(el) { el.classList.remove('hidden'); }
-    function hide(el) { el.classList.add('hidden'); }
-
-    function prepareVideo() {
-      if (preparing) return;
-      preparing = true;
-      video.pause();
-      video.currentTime = 0;
-      video.play().then(() => {
-        video.pause();
-        preparing = false;
-      }).catch(() => {
-        preparing = false;
-      });
-    }
-
-    // Sinkronisasi audio dan video
-    function syncVideo() {
-      const currentTime = audio.currentTime;
-      if (currentTime >= showVideoAt && currentTime <= hideVideoAt) {
-        show(video);
-        const target = currentTime - showVideoAt;
-        const diff = Math.abs(video.currentTime - target);
-        if (diff > 0.2) {
-          video.currentTime = target;
-        }
-        if (audio.paused && !video.paused) video.pause();
-        else if (!audio.paused && video.paused) video.play();
-      } else {
-        hide(video);
-        video.pause();
+    function showVideo() {
+      if (!showing) {
+        video.style.display = 'block';
+        showing = true;
+        status.textContent = 'Status: video tampil';
       }
     }
 
-    // Sync loop
-    setInterval(syncVideo, 100);
+    function hideVideo() {
+      if (showing) {
+        video.pause();
+        video.currentTime = 0;
+        video.style.display = 'none';
+        showing = false;
+        status.textContent = 'Status: video disembunyikan';
+      }
+    }
 
-    // Handle play
-    audio.addEventListener('play', () => {
-      prepareVideo();
-      setTimeout(() => {
-        if (audio.currentTime >= showVideoAt && audio.currentTime <= hideVideoAt) {
-          video.play();
-        }
-      }, syncOffset * 1000);
+    // Sinkronisasi video dan audio dengan delay kecil saat seek
+    audio.addEventListener('seeked', () => {
+      if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
+        video.currentTime = audio.currentTime - videoStart;
+        setTimeout(() => {
+          video.play().catch(() => {});
+          showVideo();
+        }, 100);
+      } else {
+        hideVideo();
+      }
     });
 
-    // Handle pause
+    audio.addEventListener('play', () => {
+      if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
+        video.currentTime = audio.currentTime - videoStart;
+        setTimeout(() => {
+          video.play().catch(() => {});
+          showVideo();
+        }, 100);
+      }
+    });
+
     audio.addEventListener('pause', () => {
       video.pause();
+      status.textContent = 'Status: video dijeda';
     });
 
-    // Handle seek
-    audio.addEventListener('seeking', () => {
-      lastSeekTime = Date.now();
-    });
-    audio.addEventListener('seeked', () => {
-      setTimeout(() => {
-        if (Date.now() - lastSeekTime >= 50) {
-          if (audio.currentTime >= showVideoAt && audio.currentTime <= hideVideoAt) {
-            video.currentTime = audio.currentTime - showVideoAt;
-            video.pause();
-            video.play();
-          }
+    audio.addEventListener('timeupdate', () => {
+      if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
+        if (video.paused) {
+          video.currentTime = audio.currentTime - videoStart;
+          video.play().catch(() => {});
         }
-      }, 80);
+        showVideo();
+      } else {
+        hideVideo();
+      }
     });
 
-    // Sembunyikan video saat habis
-    video.addEventListener('ended', () => {
-      hide(video);
-    });
-
-    // Sembunyikan status
-    status.style.display = 'none';
+    video.addEventListener('ended', hideVideo);
   </script>
 </body>
 </html>
