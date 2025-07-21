@@ -1,131 +1,135 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Video Sync Booster</title>
+  <title>Sync Player</title>
   <style>
     body {
       margin: 0;
       background: black;
-      color: white;
-      font-family: sans-serif;
       overflow: hidden;
+      font-family: sans-serif;
     }
     #container {
       position: relative;
       width: 100vw;
       height: 100vh;
     }
-    video {
+    video, audio {
       position: absolute;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: none;
-      will-change: transform, opacity;
-      transform: translateZ(0);
-      backface-visibility: hidden;
+      max-width: 100%;
+      max-height: 100%;
     }
-    audio {
-      width: 100%;
-      position: absolute;
-      bottom: 10px;
-      left: 0;
+    .hidden {
+      display: none;
     }
     #status {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.6);
-      padding: 5px 10px;
-      font-size: 14px;
+      bottom: 5px;
+      left: 5px;
+      color: white;
+      font-size: 12px;
+      background: rgba(0,0,0,0.5);
+      padding: 2px 6px;
+      border-radius: 3px;
+      display: none; /* disembunyikan */
     }
   </style>
 </head>
 <body>
   <div id="container">
-    <video id="video" muted></video>
-    <audio id="audio" controls></audio>
+    <video id="vid1" src="https://files.catbox.moe/21926t.mp4" preload="auto" class="hidden"></video>
+    <audio id="aud1" src="https://files.catbox.moe/t5zj2x.mp3" preload="auto"></audio>
     <div id="status">Status: idle</div>
   </div>
 
   <script>
-    const video = document.getElementById('video');
-    const audio = document.getElementById('audio');
+    const video = document.getElementById('vid1');
+    const audio = document.getElementById('aud1');
     const status = document.getElementById('status');
+    const container = document.getElementById('container');
 
-    let showing = false;
-    const videoStart = 71.5;
-    const videoEnd = 92;
+    let syncOffset = 0.1; // delay kecil sinkronisasi
+    let lastSeekTime = 0;
 
-    // Set sumber video dan audio (720p)
-    video.src = 'https://files.catbox.moe/21926t.mp4';
-    audio.src = 'https://files.catbox.moe/72pt0n.mp3';
+    const showVideoAt = 10; // detik kapan video muncul
+    const hideVideoAt = 90; // detik kapan video disembunyikan
+    let preparing = false;
 
-    // Paksa decoding awal agar tidak lag
-    video.preload = 'auto';
-    video.load();
-    video.onloadeddata = () => {
-      video.currentTime = 0;
+    function show(el) { el.classList.remove('hidden'); }
+    function hide(el) { el.classList.add('hidden'); }
+
+    function prepareVideo() {
+      if (preparing) return;
+      preparing = true;
       video.pause();
-      video.play().then(() => video.pause());
-    };
-
-    function showVideo() {
-      if (!showing) {
-        video.style.display = 'block';
-        showing = true;
-        status.textContent = 'Status: video tampil';
-      }
-    }
-
-    function hideVideo() {
-      if (showing) {
+      video.currentTime = 0;
+      video.play().then(() => {
         video.pause();
-        video.style.display = 'none';
-        showing = false;
-        status.textContent = 'Status: disembunyikan';
-      }
-    }
-
-    function syncAndPlayVideo() {
-      video.currentTime = audio.currentTime - videoStart;
-      requestAnimationFrame(() => {
-        video.play().catch(() => {});
-        showVideo();
+        preparing = false;
+      }).catch(() => {
+        preparing = false;
       });
     }
 
-    audio.addEventListener('seeked', () => {
-      if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
-        syncAndPlayVideo();
+    // Sinkronisasi audio dan video
+    function syncVideo() {
+      const currentTime = audio.currentTime;
+      if (currentTime >= showVideoAt && currentTime <= hideVideoAt) {
+        show(video);
+        const target = currentTime - showVideoAt;
+        const diff = Math.abs(video.currentTime - target);
+        if (diff > 0.2) {
+          video.currentTime = target;
+        }
+        if (audio.paused && !video.paused) video.pause();
+        else if (!audio.paused && video.paused) video.play();
       } else {
-        hideVideo();
+        hide(video);
+        video.pause();
       }
-    });
+    }
 
+    // Sync loop
+    setInterval(syncVideo, 100);
+
+    // Handle play
     audio.addEventListener('play', () => {
-      if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
-        syncAndPlayVideo();
-      }
+      prepareVideo();
+      setTimeout(() => {
+        if (audio.currentTime >= showVideoAt && audio.currentTime <= hideVideoAt) {
+          video.play();
+        }
+      }, syncOffset * 1000);
     });
 
+    // Handle pause
     audio.addEventListener('pause', () => {
       video.pause();
-      status.textContent = 'Status: video dijeda';
     });
 
-    audio.addEventListener('timeupdate', () => {
-      if (audio.currentTime >= videoStart && audio.currentTime <= videoEnd) {
-        if (video.paused) syncAndPlayVideo();
-        else video.currentTime = audio.currentTime - videoStart;
-        showVideo();
-      } else {
-        hideVideo();
-      }
+    // Handle seek
+    audio.addEventListener('seeking', () => {
+      lastSeekTime = Date.now();
+    });
+    audio.addEventListener('seeked', () => {
+      setTimeout(() => {
+        if (Date.now() - lastSeekTime >= 50) {
+          if (audio.currentTime >= showVideoAt && audio.currentTime <= hideVideoAt) {
+            video.currentTime = audio.currentTime - showVideoAt;
+            video.pause();
+            video.play();
+          }
+        }
+      }, 80);
     });
 
-    video.addEventListener('ended', hideVideo);
+    // Sembunyikan video saat habis
+    video.addEventListener('ended', () => {
+      hide(video);
+    });
+
+    // Sembunyikan status
+    status.style.display = 'none';
   </script>
 </body>
 </html>
