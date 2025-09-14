@@ -62,7 +62,7 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video elements -->
+  <!-- Video elements (720p) -->
   <video id="video-funk" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
@@ -102,80 +102,48 @@
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
-      let started = false;
-      let syncLoop = null;
+      let started   = false;
 
-      // fungsi sync per frame
-      function syncFrame() {
-        if (started && !videoEl.paused) {
-          const target = p.currentTime - trigger;
-          if (Math.abs(videoEl.currentTime - target) > 0.25) {
-            videoEl.currentTime = target;
-          }
-          syncLoop = requestAnimationFrame(syncFrame);
-        }
+      function showVideoAt(time) {
+        videoEl.style.display = "block";
+        title.textContent = "EASTER EGG FOUND";
+        videoEl.currentTime = time - trigger;
+        videoEl.play().catch(()=>{});
+      }
+
+      function hideVideo() {
+        videoEl.pause();
+        videoEl.style.display = "none";
+        title.textContent = "Music Player";
+        started = false;
       }
 
       p.addEventListener("play", () => {
-        // stop audio lain
-        players.forEach(o => { if (o !== p) o.pause(); });
-        // sembunyiin video lain
-        videos.forEach(v => {
-          if (v !== videoEl) {
-            v.pause();
-            v.style.display = "none";
-          }
-        });
+        // pause others
+        players.forEach(o => { if (o!==p) o.pause(); });
+        // hide other videos
+        videos.forEach(v => { if (v!==videoEl) { v.pause(); v.style.display="none"; }});
         started = false;
-        cancelAnimationFrame(syncLoop);
       });
 
       p.addEventListener("timeupdate", () => {
-        if (!started && p.currentTime >= trigger) {
+        const t = p.currentTime;
+        if (!started && t >= trigger) {
           started = true;
-          videoEl.style.display = "block";
-          title.textContent = "EASTER EGG FOUND";
-          videoEl.currentTime = p.currentTime - trigger;
-
-          // mini spam seek buat "paksa lancar"
-          let burst = 0;
-          const burstSeek = setInterval(() => {
-            videoEl.currentTime = p.currentTime - trigger;
-            burst++;
-            if (burst > 3) clearInterval(burstSeek);
-          }, 60);
-
-          videoEl.play().catch(()=>{});
-          syncLoop = requestAnimationFrame(syncFrame);
+          showVideoAt(t);
         }
-
-        if (p.ended) {
-          videoEl.pause();
-          videoEl.style.display = "none";
-          title.textContent = "Music Player";
-          started = false;
-          cancelAnimationFrame(syncLoop);
+        if (started && p.ended) {
+          hideVideo();
         }
       });
 
       p.addEventListener("seeked", () => {
-        if (p.currentTime >= trigger) {
-          videoEl.currentTime = p.currentTime - trigger;
-          if (!started) {
-            started = true;
-            videoEl.style.display = "block";
-            title.textContent = "EASTER EGG FOUND";
-            videoEl.play().catch(()=>{});
-            syncLoop = requestAnimationFrame(syncFrame);
-          }
+        const t = p.currentTime;
+        if (t >= trigger) {
+          started = true;
+          showVideoAt(t);
         } else {
-          if (started) {
-            videoEl.pause();
-            videoEl.style.display = "none";
-            title.textContent = "Music Player";
-            started = false;
-            cancelAnimationFrame(syncLoop);
-          }
+          hideVideo();
         }
       });
 
@@ -183,12 +151,11 @@
         if (started) videoEl.pause();
       });
 
-      videoEl.addEventListener("ended", () => {
-        videoEl.style.display = "none";
-        title.textContent = "Music Player";
-        started = false;
-        cancelAnimationFrame(syncLoop);
+      p.addEventListener("play", () => {
+        if (started && videoEl.paused) videoEl.play().catch(()=>{});
       });
+
+      videoEl.addEventListener("ended", hideVideo);
     });
   </script>
 </body>
