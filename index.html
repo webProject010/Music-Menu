@@ -4,6 +4,15 @@
   <meta charset="UTF-8" />
   <title>Music Player Menu</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Preload audio & video untuk pramuat ekstensif -->
+  <link rel="preload" as="video" href="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
+  <link rel="preload" as="video" href="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
+  <link rel="preload" as="video" href="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
+  <link rel="preload" as="audio" href="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
+  <link rel="preload" as="audio" href="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
+  <link rel="preload" as="audio" href="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
+
   <style>
     * { box-sizing: border-box; }
     body {
@@ -62,7 +71,7 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video elements -->
+  <!-- Video elements (720p, link Catbox asli) -->
   <video id="video-funk" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
@@ -103,30 +112,21 @@
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
       let started   = false;
-      let seekTimeout;
 
       function showVideoAt(time) {
         videoEl.style.display = "block";
         title.textContent = "EASTER EGG FOUND";
-        videoEl.currentTime = Math.max(0, time - trigger);
+        videoEl.currentTime = time - trigger;
         videoEl.play().catch(()=>{});
       }
 
       function hideVideo() {
         videoEl.pause();
+        videoEl.currentTime = 0; // biar ga freeze frame terakhir
         videoEl.style.display = "none";
         title.textContent = "Music Player";
         started = false;
       }
-
-      // Cek tiap 2 detik biar sinkron
-      setInterval(() => {
-        if (!p.paused && started) {
-          if (p.currentTime < trigger || p.ended) {
-            hideVideo();
-          }
-        }
-      }, 2000);
 
       p.addEventListener("play", () => {
         players.forEach(o => { if (o!==p) o.pause(); });
@@ -146,16 +146,13 @@
       });
 
       p.addEventListener("seeked", () => {
-        clearTimeout(seekTimeout);
-        seekTimeout = setTimeout(() => {
-          const t = p.currentTime;
-          if (t >= trigger) {
-            started = true;
-            showVideoAt(t);
-          } else {
-            hideVideo();
-          }
-        }, 200);
+        const t = p.currentTime;
+        if (t >= trigger) {
+          started = true;
+          showVideoAt(t);
+        } else {
+          hideVideo();
+        }
       });
 
       p.addEventListener("pause", () => {
