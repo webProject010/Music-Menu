@@ -4,15 +4,6 @@
   <meta charset="UTF-8" />
   <title>Music Player Menu</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Preload audio & video untuk pramuat ekstensif -->
-  <link rel="preload" as="video" href="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
-  <link rel="preload" as="video" href="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
-  <link rel="preload" as="video" href="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
-  <link rel="preload" as="audio" href="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
-  <link rel="preload" as="audio" href="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
-  <link rel="preload" as="audio" href="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
-
   <style>
     * { box-sizing: border-box; }
     body {
@@ -31,6 +22,7 @@
       margin: 5vw 0 3vw;
       text-align: center;
       z-index: 1;
+      transition: opacity 0.5s ease;
     }
     .music-container {
       background: rgba(31,31,31,0.85);
@@ -63,7 +55,30 @@
       width: 100vw; height: 100vh;
       object-fit: cover;
       z-index: -1;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+    video.bg-video.active {
+      opacity: 1;
+      z-index: -1;
+    }
+    /* Spinner animasi */
+    .spinner {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      border: 6px solid rgba(255,255,255,0.2);
+      border-top: 6px solid #fff;
+      border-radius: 50%;
+      width: 40px; height: 40px;
+      animation: spin 1s linear infinite;
       display: none;
+      z-index: 10;
+    }
+    @keyframes spin {
+      from { transform: translate(-50%, -50%) rotate(0deg); }
+      to { transform: translate(-50%, -50%) rotate(360deg); }
     }
   </style>
 </head>
@@ -71,7 +86,10 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video elements (720p, link Catbox asli) -->
+  <!-- Spinner -->
+  <div id="spinner" class="spinner"></div>
+
+  <!-- Video elements -->
   <video id="video-funk" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
@@ -107,6 +125,7 @@
     const players = document.querySelectorAll("audio");
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
+    const spinner = document.getElementById("spinner");
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -114,24 +133,23 @@
       let started   = false;
 
       function showVideoAt(time) {
-        videoEl.style.display = "block";
+        videoEl.classList.add("active");
         title.textContent = "EASTER EGG FOUND";
         videoEl.currentTime = time - trigger;
-        videoEl.play().catch(()=>{});
+        if (!p.paused) videoEl.play().catch(()=>{});
       }
 
       function hideVideo() {
         videoEl.pause();
-        videoEl.currentTime = 0; // biar ga freeze frame terakhir
-        videoEl.style.display = "none";
+        videoEl.classList.remove("active");
         title.textContent = "Music Player";
         started = false;
       }
 
       p.addEventListener("play", () => {
         players.forEach(o => { if (o!==p) o.pause(); });
-        videos.forEach(v => { if (v!==videoEl) { v.pause(); v.style.display="none"; }});
-        started = false;
+        videos.forEach(v => { if (v!==videoEl) { v.pause(); v.classList.remove("active"); }});
+        if (started) videoEl.play().catch(()=>{});
       });
 
       p.addEventListener("timeupdate", () => {
@@ -149,7 +167,8 @@
         const t = p.currentTime;
         if (t >= trigger) {
           started = true;
-          showVideoAt(t);
+          videoEl.currentTime = t - trigger;
+          if (!p.paused) videoEl.play().catch(()=>{});
         } else {
           hideVideo();
         }
@@ -159,11 +178,15 @@
         if (started) videoEl.pause();
       });
 
-      p.addEventListener("play", () => {
-        if (started && videoEl.paused) videoEl.play().catch(()=>{});
-      });
-
       videoEl.addEventListener("ended", hideVideo);
+
+      // Spinner: buffering
+      videoEl.addEventListener("waiting", () => {
+        spinner.style.display = "block";
+      });
+      videoEl.addEventListener("playing", () => {
+        spinner.style.display = "none";
+      });
     });
   </script>
 </body>
