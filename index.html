@@ -62,7 +62,7 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video elements (720p Catbox) -->
+  <!-- Video elements -->
   <video id="video-funk" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
@@ -99,98 +99,82 @@
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
 
-    const prepOffset = 1.0;    // detik sebelum trigger untuk warm-up
-    let syncId = null;
-
     players.forEach(p => {
-      const trigger    = parseFloat(p.dataset.trigger);
-      const videoEl    = document.getElementById(p.dataset.video);
-      let prepared     = false;
-      let started      = false;
+      const trigger = parseFloat(p.dataset.trigger);
+      const videoEl = document.getElementById(p.dataset.video);
+      let started = false;
+      let syncLoop = null;
 
-      // warm-up decoder sebelum video ditampilkan
-      function warmUp() {
-        try {
-          videoEl.currentTime = Math.max(0, p.currentTime - trigger);
-          videoEl.play().then(()=>videoEl.pause()).catch(()=>{});
-          prepared = true;
-        } catch(e) {}
-      }
-
-      // sync per frame tapi dibatasi
+      // fungsi sync per frame
       function syncFrame() {
         if (started && !videoEl.paused) {
           const target = p.currentTime - trigger;
-          const diff = videoEl.currentTime - target;
-          if (Math.abs(diff) > 0.25) {
+          if (Math.abs(videoEl.currentTime - target) > 0.25) {
             videoEl.currentTime = target;
           }
-          syncId = requestAnimationFrame(syncFrame);
+          syncLoop = requestAnimationFrame(syncFrame);
         }
       }
 
       p.addEventListener("play", () => {
-        // pause audio lain
-        players.forEach(o => { if (o!==p) o.pause(); });
-        // sembunyikan video lain
+        // stop audio lain
+        players.forEach(o => { if (o !== p) o.pause(); });
+        // sembunyiin video lain
         videos.forEach(v => {
-          if (v!==videoEl) {
+          if (v !== videoEl) {
             v.pause();
-            v.style.display="none";
+            v.style.display = "none";
           }
         });
-        prepared = started = false;
-        cancelAnimationFrame(syncId);
-        videoEl.load();
+        started = false;
+        cancelAnimationFrame(syncLoop);
       });
 
       p.addEventListener("timeupdate", () => {
-        const t = p.currentTime;
-
-        // warm-up sedikit sebelum trigger
-        if (!prepared && t >= trigger - prepOffset && t < trigger) {
-          warmUp();
-        }
-
-        // mulai video saat trigger
-        if (!started && t >= trigger) {
+        if (!started && p.currentTime >= trigger) {
           started = true;
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
-          videoEl.currentTime = t - trigger;
+          videoEl.currentTime = p.currentTime - trigger;
+
+          // mini spam seek buat "paksa lancar"
+          let burst = 0;
+          const burstSeek = setInterval(() => {
+            videoEl.currentTime = p.currentTime - trigger;
+            burst++;
+            if (burst > 3) clearInterval(burstSeek);
+          }, 60);
+
           videoEl.play().catch(()=>{});
-          syncId = requestAnimationFrame(syncFrame);
+          syncLoop = requestAnimationFrame(syncFrame);
         }
 
-        // sembunyikan saat audio selesai
-        if (started && p.ended) {
+        if (p.ended) {
           videoEl.pause();
-          videoEl.style.display="none";
-          title.textContent="Music Player";
-          started = prepared = false;
-          cancelAnimationFrame(syncId);
+          videoEl.style.display = "none";
+          title.textContent = "Music Player";
+          started = false;
+          cancelAnimationFrame(syncLoop);
         }
       });
 
       p.addEventListener("seeked", () => {
-        const t = p.currentTime;
-        if (t >= trigger) {
-          if (!prepared) warmUp();
+        if (p.currentTime >= trigger) {
+          videoEl.currentTime = p.currentTime - trigger;
           if (!started) {
             started = true;
             videoEl.style.display = "block";
             title.textContent = "EASTER EGG FOUND";
-            syncId = requestAnimationFrame(syncFrame);
+            videoEl.play().catch(()=>{});
+            syncLoop = requestAnimationFrame(syncFrame);
           }
-          videoEl.currentTime = t - trigger;
-          videoEl.play().catch(()=>{});
         } else {
           if (started) {
             videoEl.pause();
-            videoEl.style.display="none";
-            title.textContent="Music Player";
-            started = prepared = false;
-            cancelAnimationFrame(syncId);
+            videoEl.style.display = "none";
+            title.textContent = "Music Player";
+            started = false;
+            cancelAnimationFrame(syncLoop);
           }
         }
       });
@@ -199,15 +183,11 @@
         if (started) videoEl.pause();
       });
 
-      p.addEventListener("play", () => {
-        if (started && videoEl.paused) {
-          videoEl.play().catch(()=>{});
-        }
-      });
-
       videoEl.addEventListener("ended", () => {
-        videoEl.style.display="none";
-        title.textContent="Music Player";
+        videoEl.style.display = "none";
+        title.textContent = "Music Player";
+        started = false;
+        cancelAnimationFrame(syncLoop);
       });
     });
   </script>
