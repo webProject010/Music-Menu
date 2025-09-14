@@ -99,11 +99,15 @@
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
 
+    const useRealtime = false; // ganti ke true kalau mau sync tiap frame
+    const syncInterval = 3000000000000000; // default sync tiap 3 detik
+
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
       let started   = false;
       let syncTimer = null;
+      let rafId     = null;
 
       function showVideoAt(time) {
         if (videoEl.style.display !== "block") {
@@ -113,6 +117,7 @@
         videoEl.currentTime = Math.max(0, time - trigger);
         videoEl.play().catch(()=>{});
         started = true;
+        startSync();
       }
 
       function hideVideo() {
@@ -123,16 +128,44 @@
           title.textContent = "Music Player";
         }
         started = false;
+        stopSync();
+      }
+
+      function syncVideo() {
+        if (!p.paused && started) {
+          let diff = Math.abs(videoEl.currentTime - (p.currentTime - trigger));
+          if (diff > 0.3) {
+            videoEl.currentTime = Math.max(0, p.currentTime - trigger);
+          }
+        }
+      }
+
+      function startSync() {
+        stopSync();
+        if (useRealtime) {
+          const loop = () => {
+            syncVideo();
+            rafId = requestAnimationFrame(loop);
+          };
+          rafId = requestAnimationFrame(loop);
+        } else {
+          syncTimer = setInterval(syncVideo, syncInterval);
+        }
+      }
+
+      function stopSync() {
         if (syncTimer) {
           clearInterval(syncTimer);
           syncTimer = null;
         }
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
       }
 
       p.addEventListener("play", () => {
-        // pause others
         players.forEach(o => { if (o!==p) o.pause(); });
-        // hide other videos
         videos.forEach(v => { if (v!==videoEl) { v.pause(); v.style.display="none"; }});
         started = false;
       });
@@ -141,16 +174,6 @@
         const t = p.currentTime;
         if (!started && t >= trigger) {
           showVideoAt(t);
-          if (!syncTimer) {
-            syncTimer = setInterval(() => {
-              if (!p.paused && started) {
-                let diff = Math.abs(videoEl.currentTime - (p.currentTime - trigger));
-                if (diff > 0.3) {
-                  videoEl.currentTime = Math.max(0, p.currentTime - trigger);
-                }
-              }
-            }, 2000);
-          }
         }
         if (started && p.ended) {
           hideVideo();
