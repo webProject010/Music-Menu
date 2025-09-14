@@ -22,7 +22,6 @@
       margin: 5vw 0 3vw;
       text-align: center;
       z-index: 1;
-      transition: opacity 0.4s ease;
     }
     .music-container {
       background: rgba(31,31,31,0.85);
@@ -55,14 +54,7 @@
       width: 100vw; height: 100vh;
       object-fit: cover;
       z-index: -1;
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      pointer-events: none;
       display: none;
-    }
-    video.bg-video.active {
-      display: block;
-      opacity: 1;
     }
   </style>
 </head>
@@ -111,40 +103,54 @@
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
       let started   = false;
+      let syncTimer = null;
 
       function showVideoAt(time) {
-        videoEl.classList.add("active");
-        title.textContent = "EASTER EGG FOUND";
-        videoEl.currentTime = time - trigger;
-        if (!p.paused) videoEl.play().catch(()=>{});
+        if (videoEl.style.display !== "block") {
+          videoEl.style.display = "block";
+          title.textContent = "EASTER EGG FOUND";
+        }
+        videoEl.currentTime = Math.max(0, time - trigger);
+        videoEl.play().catch(()=>{});
+        started = true;
       }
 
       function hideVideo() {
-        videoEl.pause();
-        videoEl.classList.remove("active");
-        title.textContent = "Music Player";
+        if (videoEl.style.display !== "none") {
+          videoEl.pause();
+          videoEl.currentTime = 0;
+          videoEl.style.display = "none";
+          title.textContent = "Music Player";
+        }
         started = false;
-
-        // tunggu fade selesai baru hide
-        videoEl.addEventListener("transitionend", () => {
-          if (!videoEl.classList.contains("active")) {
-            videoEl.style.display = "none";
-          }
-        }, { once: true });
+        if (syncTimer) {
+          clearInterval(syncTimer);
+          syncTimer = null;
+        }
       }
 
       p.addEventListener("play", () => {
+        // pause others
         players.forEach(o => { if (o!==p) o.pause(); });
-        videos.forEach(v => { if (v!==videoEl) { v.pause(); v.classList.remove("active"); v.style.display="none"; }});
-        if (started) videoEl.play().catch(()=>{});
+        // hide other videos
+        videos.forEach(v => { if (v!==videoEl) { v.pause(); v.style.display="none"; }});
+        started = false;
       });
 
       p.addEventListener("timeupdate", () => {
         const t = p.currentTime;
         if (!started && t >= trigger) {
-          started = true;
-          videoEl.style.display = "block";
           showVideoAt(t);
+          if (!syncTimer) {
+            syncTimer = setInterval(() => {
+              if (!p.paused && started) {
+                let diff = Math.abs(videoEl.currentTime - (p.currentTime - trigger));
+                if (diff > 0.3) {
+                  videoEl.currentTime = Math.max(0, p.currentTime - trigger);
+                }
+              }
+            }, 2000);
+          }
         }
         if (started && p.ended) {
           hideVideo();
@@ -154,10 +160,7 @@
       p.addEventListener("seeked", () => {
         const t = p.currentTime;
         if (t >= trigger) {
-          started = true;
-          videoEl.style.display = "block";
-          videoEl.currentTime = t - trigger;
-          if (!p.paused) videoEl.play().catch(()=>{});
+          showVideoAt(t);
         } else {
           hideVideo();
         }
@@ -167,4 +170,12 @@
         if (started) videoEl.pause();
       });
 
-      videoEl.addEventListener("ende
+      p.addEventListener("play", () => {
+        if (started && videoEl.paused) videoEl.play().catch(()=>{});
+      });
+
+      videoEl.addEventListener("ended", hideVideo);
+    });
+  </script>
+</body>
+</html>
