@@ -62,7 +62,7 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video elements (720p) -->
+  <!-- Video elements -->
   <video id="video-funk" class="bg-video" muted preload="auto">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
@@ -103,12 +103,12 @@
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
       let started   = false;
-      let syncInterval;
+      let seekTimeout;
 
       function showVideoAt(time) {
         videoEl.style.display = "block";
         title.textContent = "EASTER EGG FOUND";
-        videoEl.currentTime = time - trigger;
+        videoEl.currentTime = Math.max(0, time - trigger);
         videoEl.play().catch(()=>{});
       }
 
@@ -119,24 +119,19 @@
         started = false;
       }
 
-      function syncVideo() {
-        if (!started) return;
-        const t = p.currentTime;
-        if (t >= trigger) {
-          const diff = Math.abs(videoEl.currentTime - (t - trigger));
-          if (diff > 0.3) videoEl.currentTime = t - trigger;
-          if (p.paused) videoEl.pause(); else videoEl.play().catch(()=>{});
-        } else {
-          hideVideo();
+      // Cek tiap 2 detik biar sinkron
+      setInterval(() => {
+        if (!p.paused && started) {
+          if (p.currentTime < trigger || p.ended) {
+            hideVideo();
+          }
         }
-      }
+      }, 2000);
 
       p.addEventListener("play", () => {
         players.forEach(o => { if (o!==p) o.pause(); });
         videos.forEach(v => { if (v!==videoEl) { v.pause(); v.style.display="none"; }});
         started = false;
-        clearInterval(syncInterval);
-        syncInterval = setInterval(syncVideo, 2000);
       });
 
       p.addEventListener("timeupdate", () => {
@@ -145,24 +140,32 @@
           started = true;
           showVideoAt(t);
         }
-        if (started && p.ended) hideVideo();
+        if (started && p.ended) {
+          hideVideo();
+        }
       });
 
       p.addEventListener("seeked", () => {
-        hideVideo();
-        setTimeout(()=>{
+        clearTimeout(seekTimeout);
+        seekTimeout = setTimeout(() => {
           const t = p.currentTime;
           if (t >= trigger) {
             started = true;
             showVideoAt(t);
+          } else {
+            hideVideo();
           }
-        },200);
+        }, 200);
       });
 
-      p.addEventListener("pause", () => { if (started) videoEl.pause(); });
-      p.addEventListener("play", () => { if (started && videoEl.paused) videoEl.play().catch(()=>{}); });
+      p.addEventListener("pause", () => {
+        if (started) videoEl.pause();
+      });
 
-      p.addEventListener("ended", hideVideo);
+      p.addEventListener("play", () => {
+        if (started && videoEl.paused) videoEl.play().catch(()=>{});
+      });
+
       videoEl.addEventListener("ended", hideVideo);
     });
   </script>
