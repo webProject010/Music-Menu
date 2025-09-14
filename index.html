@@ -103,6 +103,7 @@
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
       let started   = false;
+      let syncInterval;
 
       function showVideoAt(time) {
         videoEl.style.display = "block";
@@ -118,12 +119,24 @@
         started = false;
       }
 
+      function syncVideo() {
+        if (!started) return;
+        const t = p.currentTime;
+        if (t >= trigger) {
+          const diff = Math.abs(videoEl.currentTime - (t - trigger));
+          if (diff > 0.3) videoEl.currentTime = t - trigger;
+          if (p.paused) videoEl.pause(); else videoEl.play().catch(()=>{});
+        } else {
+          hideVideo();
+        }
+      }
+
       p.addEventListener("play", () => {
-        // pause others
         players.forEach(o => { if (o!==p) o.pause(); });
-        // hide other videos
         videos.forEach(v => { if (v!==videoEl) { v.pause(); v.style.display="none"; }});
         started = false;
+        clearInterval(syncInterval);
+        syncInterval = setInterval(syncVideo, 2000);
       });
 
       p.addEventListener("timeupdate", () => {
@@ -132,29 +145,24 @@
           started = true;
           showVideoAt(t);
         }
-        if (started && p.ended) {
-          hideVideo();
-        }
+        if (started && p.ended) hideVideo();
       });
 
       p.addEventListener("seeked", () => {
-        const t = p.currentTime;
-        if (t >= trigger) {
-          started = true;
-          showVideoAt(t);
-        } else {
-          hideVideo();
-        }
+        hideVideo();
+        setTimeout(()=>{
+          const t = p.currentTime;
+          if (t >= trigger) {
+            started = true;
+            showVideoAt(t);
+          }
+        },200);
       });
 
-      p.addEventListener("pause", () => {
-        if (started) videoEl.pause();
-      });
+      p.addEventListener("pause", () => { if (started) videoEl.pause(); });
+      p.addEventListener("play", () => { if (started && videoEl.paused) videoEl.play().catch(()=>{}); });
 
-      p.addEventListener("play", () => {
-        if (started && videoEl.paused) videoEl.play().catch(()=>{});
-      });
-
+      p.addEventListener("ended", hideVideo);
       videoEl.addEventListener("ended", hideVideo);
     });
   </script>
