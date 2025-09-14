@@ -99,20 +99,22 @@
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
 
-    const useRealtime = true; // ganti ke true kalau mau sync tiap frame
-    const syncInterval = 3000000000000000; // default sync tiap 3 detik
+    const useRealtime = false; // true = sync tiap frame, false = interval
+    const syncInterval = 3000; // ms, default tiap 3 detik
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
       let started   = false;
+      let isVideoVisible = false;
       let syncTimer = null;
       let rafId     = null;
 
       function showVideoAt(time) {
-        if (videoEl.style.display !== "block") {
+        if (!isVideoVisible) {
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
+          isVideoVisible = true;
         }
         videoEl.currentTime = Math.max(0, time - trigger);
         videoEl.play().catch(()=>{});
@@ -121,11 +123,12 @@
       }
 
       function hideVideo() {
-        if (videoEl.style.display !== "none") {
+        if (isVideoVisible) {
           videoEl.pause();
           videoEl.currentTime = 0;
           videoEl.style.display = "none";
           title.textContent = "Music Player";
+          isVideoVisible = false;
         }
         started = false;
         stopSync();
@@ -133,9 +136,10 @@
 
       function syncVideo() {
         if (!p.paused && started) {
-          let diff = Math.abs(videoEl.currentTime - (p.currentTime - trigger));
+          let targetTime = Math.max(0, p.currentTime - trigger);
+          let diff = Math.abs(videoEl.currentTime - targetTime);
           if (diff > 0.3) {
-            videoEl.currentTime = Math.max(0, p.currentTime - trigger);
+            videoEl.currentTime = targetTime;
           }
         }
       }
