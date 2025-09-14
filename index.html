@@ -22,7 +22,7 @@
       margin: 5vw 0 3vw;
       text-align: center;
       z-index: 1;
-      transition: opacity 0.5s ease;
+      transition: opacity 0.4s ease;
     }
     .music-container {
       background: rgba(31,31,31,0.85);
@@ -56,38 +56,19 @@
       object-fit: cover;
       z-index: -1;
       opacity: 0;
-      transition: opacity 0.5s ease;
+      transition: opacity 0.4s ease;
       pointer-events: none;
+      display: none;
     }
     video.bg-video.active {
+      display: block;
       opacity: 1;
-      z-index: -1;
-    }
-    /* Spinner animasi */
-    .spinner {
-      position: fixed;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      border: 6px solid rgba(255,255,255,0.2);
-      border-top: 6px solid #fff;
-      border-radius: 50%;
-      width: 40px; height: 40px;
-      animation: spin 1s linear infinite;
-      display: none;
-      z-index: 10;
-    }
-    @keyframes spin {
-      from { transform: translate(-50%, -50%) rotate(0deg); }
-      to { transform: translate(-50%, -50%) rotate(360deg); }
     }
   </style>
 </head>
 <body>
 
   <h1 id="title">Music Player</h1>
-
-  <!-- Spinner -->
-  <div id="spinner" class="spinner"></div>
 
   <!-- Video elements -->
   <video id="video-funk" class="bg-video" muted preload="auto">
@@ -125,7 +106,6 @@
     const players = document.querySelectorAll("audio");
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
-    const spinner = document.getElementById("spinner");
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -144,11 +124,18 @@
         videoEl.classList.remove("active");
         title.textContent = "Music Player";
         started = false;
+
+        // tunggu fade selesai baru hide
+        videoEl.addEventListener("transitionend", () => {
+          if (!videoEl.classList.contains("active")) {
+            videoEl.style.display = "none";
+          }
+        }, { once: true });
       }
 
       p.addEventListener("play", () => {
         players.forEach(o => { if (o!==p) o.pause(); });
-        videos.forEach(v => { if (v!==videoEl) { v.pause(); v.classList.remove("active"); }});
+        videos.forEach(v => { if (v!==videoEl) { v.pause(); v.classList.remove("active"); v.style.display="none"; }});
         if (started) videoEl.play().catch(()=>{});
       });
 
@@ -156,6 +143,7 @@
         const t = p.currentTime;
         if (!started && t >= trigger) {
           started = true;
+          videoEl.style.display = "block";
           showVideoAt(t);
         }
         if (started && p.ended) {
@@ -167,6 +155,7 @@
         const t = p.currentTime;
         if (t >= trigger) {
           started = true;
+          videoEl.style.display = "block";
           videoEl.currentTime = t - trigger;
           if (!p.paused) videoEl.play().catch(()=>{});
         } else {
@@ -178,16 +167,4 @@
         if (started) videoEl.pause();
       });
 
-      videoEl.addEventListener("ended", hideVideo);
-
-      // Spinner: buffering
-      videoEl.addEventListener("waiting", () => {
-        spinner.style.display = "block";
-      });
-      videoEl.addEventListener("playing", () => {
-        spinner.style.display = "none";
-      });
-    });
-  </script>
-</body>
-</html>
+      videoEl.addEventListener("ende
