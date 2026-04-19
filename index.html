@@ -57,20 +57,24 @@
       z-index: -1;
       display: none;
     }
-    .loading-indicator {
+    .status-indicator {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.8);
-      padding: 10px 20px;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 5px 10px;
       border-radius: 5px;
+      font-size: 0.8em;
       display: none;
-      font-size: 0.9em;
       z-index: 10;
     }
-    .track.loading .loading-indicator {
+    .status-indicator.buffering {
       display: block;
+      color: #ff9800;
+    }
+    .status-indicator.ready {
+      display: block;
+      color: #4caf50;
     }
   </style>
 </head>
@@ -78,34 +82,34 @@
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video elements - preload="none" untuk performa lebih baik -->
-  <video id="video-funk" class="bg-video" muted preload="none">
+  <!-- Video elements -->
+  <video id="video-funk" class="bg-video" muted preload="metadata">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
-  <video id="video-stay" class="bg-video" muted preload="none">
+  <video id="video-stay" class="bg-video" muted preload="metadata">
     <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
   </video>
-  <video id="video-girl" class="bg-video" muted preload="none">
+  <video id="video-girl" class="bg-video" muted preload="metadata">
     <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
   </video>
 
   <div class="music-container">
     <div class="track" data-track="0">
-      <div class="loading-indicator">Loading video...</div>
+      <div class="status-indicator"></div>
       <div class="track-title">Irokz - Funk Universo</div>
       <audio controls data-trigger="73.3" data-video="video-funk">
         <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
       </audio>
     </div>
     <div class="track" data-track="1">
-      <div class="loading-indicator">Loading video...</div>
+      <div class="status-indicator"></div>
       <div class="track-title">Justin Bieber - STAY Remix</div>
       <audio controls data-trigger="25.3" data-video="video-stay">
         <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
       </audio>
     </div>
     <div class="track" data-track="2">
-      <div class="loading-indicator">Loading video...</div>
+      <div class="status-indicator"></div>
       <div class="track-title">Sinammota - Girl A</div>
       <audio controls data-trigger="69" data-video="video-girl">
         <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
@@ -118,55 +122,76 @@
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
 
-    // Sync interval yang lebih cepat untuk menghindari drift
-    const syncInterval = 200; // ms, sync tiap 200ms
-
-    let currentActivePlayer = null;
+    // Konfigurasi sync yang lebih smooth
+    const SYNC_CHECK_INTERVAL = 500;  // Cek sync tiap 500ms
+    const DRIFT_THRESHOLD = 0.8;      // Baru sync jika drift > 0.8 detik
+    const HARD_SYNC_THRESHOLD = 2.0;  // Hard jump jika drift > 2 detik
+    const PLAYBACK_ADJUST = 0.03;     // Adjust speed max 3%
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
       const trackEl = p.closest('.track');
+      const statusEl = trackEl.querySelector('.status-indicator');
       
-      let started   = false;
+      let started = false;
       let isVideoVisible = false;
       let syncTimer = null;
-      let videoLoaded = false;
+      let videoReady = false;
+      let isBuffering = false;
 
-      // Preload video saat user hover/interact dengan track
+      // Preload video saat user interact
       trackEl.addEventListener('mouseenter', () => {
-        if (!videoLoaded && videoEl.readyState < 2) {
+        if (videoEl.readyState < 3) {
           videoEl.load();
+          updateStatus('Preloading...');
         }
       }, { once: true });
 
-      // Video loading handlers
-      videoEl.addEventListener('loadeddata', () => {
-        videoLoaded = true;
-        trackEl.classList.remove('loading');
+      // Update status indicator
+      function updateStatus(text) {
+        statusEl.textContent = text;
+        statusEl.className = 'status-indicator';
+        if (text.includes('Buffering') || text.includes('Loading')) {
+          statusEl.classList.add('buffering');
+        } else if (text.includes('Ready')) {
+          statusEl.classList.add('ready');
+          setTimeout(() => statusEl.style.display = 'none', 2000);
+        }
+      }
+
+      // Video event handlers
+      videoEl.addEventListener('loadedmetadata', () => {
+        updateStatus('Video Ready');
+      });
+
+      videoEl.addEventListener('canplaythrough', () => {
+        videoReady = true;
+        isBuffering = false;
       });
 
       videoEl.addEventListener('waiting', () => {
-        trackEl.classList.add('loading');
+        isBuffering = true;
+        updateStatus('Buffering...');
       });
 
-      videoEl.addEventListener('canplay', () => {
-        trackEl.classList.remove('loading');
+      videoEl.addEventListener('playing', () => {
+        isBuffering = false;
+        statusEl.style.display = 'none';
+      });
+
+      videoEl.addEventListener('stalled', () => {
+        updateStatus('Network slow...');
       });
 
       function showVideoAt(time) {
-        // Load video jika belum loaded
-        if (!videoLoaded && videoEl.readyState < 2) {
-          trackEl.classList.add('loading');
-          videoEl.load();
-        }
-
         if (!isVideoVisible) {
-          // Sembunyikan semua video lain
+          // Hide all other videos
           videos.forEach(v => {
             if (v !== videoEl) {
               v.pause();
               v.style.display = "none";
+              v.playbackRate = 1.0;
             }
           });
 
@@ -175,16 +200,25 @@
           isVideoVisible = true;
         }
         
-        videoEl.currentTime = Math.max(0, time - trigger);
+        // Set video time
+        const targetTime = Math.max(0, time - trigger);
+        videoEl.currentTime = targetTime;
         
-        // Play dengan promise handling
-        const playPromise = videoEl.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(err => {
-            console.log("Video play prevented:", err);
-          });
-        }
+        // Wait for buffer before playing
+        const tryPlay = () => {
+          if (videoEl.readyState >= 3) {
+            videoEl.play().catch(err => {
+              console.log("Play prevented:", err);
+              // Retry after a short delay
+              setTimeout(tryPlay, 200);
+            });
+          } else {
+            updateStatus('Buffering video...');
+            setTimeout(tryPlay, 100);
+          }
+        };
         
+        tryPlay();
         started = true;
         startSync();
       }
@@ -193,29 +227,49 @@
         if (isVideoVisible) {
           videoEl.pause();
           videoEl.currentTime = 0;
+          videoEl.playbackRate = 1.0;
           videoEl.style.display = "none";
           title.textContent = "Music Player";
           isVideoVisible = false;
         }
         started = false;
-        trackEl.classList.remove('loading');
+        statusEl.style.display = 'none';
         stopSync();
       }
 
-      function syncVideo() {
-        if (!p.paused && started && !videoEl.paused) {
-          let targetTime = Math.max(0, p.currentTime - trigger);
-          let diff = Math.abs(videoEl.currentTime - targetTime);
-          // Sync jika difference lebih dari 0.3 detik
-          if (diff > 0.3) {
-            videoEl.currentTime = targetTime;
+      function smoothSync() {
+        // Jangan sync kalau lagi buffering
+        if (!p.paused && started && !isBuffering && videoEl.readyState >= 2) {
+          const audioTime = p.currentTime;
+          const targetVideoTime = Math.max(0, audioTime - trigger);
+          const currentVideoTime = videoEl.currentTime;
+          const drift = targetVideoTime - currentVideoTime;
+          const absDrift = Math.abs(drift);
+
+          // Hard sync jika drift terlalu besar
+          if (absDrift > HARD_SYNC_THRESHOLD) {
+            videoEl.currentTime = targetVideoTime;
+            videoEl.playbackRate = 1.0;
+          }
+          // Smooth sync dengan adjust playback rate
+          else if (absDrift > DRIFT_THRESHOLD) {
+            if (drift > 0) {
+              // Video ketinggalan, percepat sedikit
+              videoEl.playbackRate = 1.0 + PLAYBACK_ADJUST;
+            } else {
+              // Video terlalu cepat, pelanin sedikit
+              videoEl.playbackRate = 1.0 - PLAYBACK_ADJUST;
+            }
+          } else {
+            // Sudah sync, reset ke normal speed
+            videoEl.playbackRate = 1.0;
           }
         }
       }
 
       function startSync() {
         stopSync();
-        syncTimer = setInterval(syncVideo, syncInterval);
+        syncTimer = setInterval(smoothSync, SYNC_CHECK_INTERVAL);
       }
 
       function stopSync() {
@@ -225,53 +279,45 @@
         }
       }
 
-      // Event: saat audio mulai play
+      // Audio play event
       p.addEventListener("play", () => {
-        // Pause semua player lain
+        // Pause other players
         players.forEach(o => { 
-          if (o !== p) {
-            o.pause();
-          }
+          if (o !== p) o.pause();
         });
 
-        // Reset semua video lain
+        // Reset other videos
         videos.forEach(v => { 
           if (v !== videoEl) { 
             v.pause(); 
             v.currentTime = 0;
+            v.playbackRate = 1.0;
             v.style.display = "none"; 
           }
         });
 
-        currentActivePlayer = p;
-
-        // Jika sudah melewati trigger point, langsung show video
+        // Show video if past trigger
         if (p.currentTime >= trigger) {
           showVideoAt(p.currentTime);
-        } else if (started) {
-          // Resume video jika sudah started sebelumnya
-          if (videoEl.paused) {
-            videoEl.play().catch(err => console.log("Resume failed:", err));
-          }
+        } else if (started && videoEl.paused) {
+          videoEl.play().catch(() => {});
         }
       });
 
-      // Event: update waktu audio
+      // Audio time update
       p.addEventListener("timeupdate", () => {
         const t = p.currentTime;
         
-        // Trigger video saat mencapai waktu tertentu
         if (!started && t >= trigger && !p.paused) {
           showVideoAt(t);
         }
         
-        // Hide video saat audio selesai
         if (started && p.ended) {
           hideVideo();
         }
       });
 
-      // Event: saat user seek/skip
+      // Audio seek event
       p.addEventListener("seeked", () => {
         const t = p.currentTime;
         if (t >= trigger && !p.paused) {
@@ -281,30 +327,34 @@
         }
       });
 
-      // Event: pause audio = pause video
+      // Audio pause
       p.addEventListener("pause", () => {
         if (started) {
           videoEl.pause();
+          videoEl.playbackRate = 1.0;
         }
       });
 
-      // Event: video selesai
+      // Video ended
       videoEl.addEventListener("ended", () => {
         hideVideo();
         p.pause();
       });
 
-      // Cleanup saat audio selesai
+      // Audio ended
       p.addEventListener("ended", () => {
         hideVideo();
       });
     });
 
-    // Cleanup saat page visibility berubah
+    // Cleanup on page visibility change
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         players.forEach(p => p.pause());
-        videos.forEach(v => v.pause());
+        videos.forEach(v => {
+          v.pause();
+          v.playbackRate = 1.0;
+        });
       }
     });
   </script>
