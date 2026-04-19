@@ -122,13 +122,15 @@
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
 
-    // Konfigurasi sync yang lebih smooth
-    const SYNC_CHECK_INTERVAL = 500;  // Cek sync tiap 500ms
-    const DRIFT_THRESHOLD = 0.8;      // Baru sync jika drift > 0.8 detik
-    const HARD_SYNC_THRESHOLD = 2.0;  // Hard jump jika drift > 2 detik
-    const PLAYBACK_ADJUST = 0.03;     // Adjust speed max 3%
-    const END_BUFFER = 2.0;           // Stop showing video 2 detik sebelum habis
-    const SEEK_DEBOUNCE = 300;        // Debounce seek 300ms
+    // Konfigurasi sync yang MUCH LESS AGGRESSIVE
+    const SYNC_CHECK_INTERVAL = 800;  // Cek sync lebih jarang (800ms)
+    const DRIFT_THRESHOLD = 1.5;      // Threshold lebih besar (1.5 detik)
+    const HARD_SYNC_THRESHOLD = 3.0;  // Hard jump threshold lebih besar
+    const PLAYBACK_ADJUST = 0.02;     // Adjust speed lebih kecil (2%)
+    const END_BUFFER = 2.0;           // Hide 2 detik sebelum akhir
+    const SEEK_DEBOUNCE = 300;        // Debounce seek
+    const MIN_BUFFERED_DURATION = 2.0; // Tunggu sampai 2 detik buffered sebelum play
+    const SYNC_START_DELAY = 1000;    // Delay 1 detik sebelum mulai sync
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -145,6 +147,8 @@
       let isSeeking = false;
       let seekDebounceTimer = null;
       let isNearEnd = false;
+      let syncStartTimer = null;
+      let lastSyncPlaybackRate = 1.0;
 
       // Preload video saat user interact
       trackEl.addEventListener('mouseenter', () => {
@@ -158,7 +162,7 @@
       function updateStatus(text) {
         statusEl.textContent = text;
         statusEl.className = 'status-indicator';
-        if (text.includes('Buffering') || text.includes('Loading')) {
+        if (text.includes('Buffering') || text.includes('Loading') || text.includes('Waiting')) {
           statusEl.classList.add('buffering');
         } else if (text.includes('Ready')) {
           statusEl.classList.add('ready');
@@ -166,10 +170,38 @@
         }
       }
 
+      // Helper: check apakah ada buffered data di target position
+      function isBufferedAtTime(time) {
+        if (!videoEl.buffered || videoEl.buffered.length === 0) return false;
+        
+        for (let i = 0; i < videoEl.buffered.length; i++) {
+          const start = videoEl.buffered.start(i);
+          const end = videoEl.buffered.end(i);
+          if (time >= start && time <= end) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // Helper: cek total buffered duration
+      function getBufferedDuration() {
+        if (!videoEl.buffered || videoEl.buffered.length === 0) return 0;
+        let total = 0;
+        for (let i = 0; i < videoEl.buffered.length; i++) {
+          total += videoEl.buffered.end(i) - videoEl.buffered.start(i);
+        }
+        return total;
+      }
+
       // Video event handlers
       videoEl.addEventListener('loadedmetadata', () => {
         videoDuration = videoEl.duration;
         updateStatus('Video Ready');
+      });
+
+      videoEl.addEventListener('canplay', () => {
+        videoReady = true;
       });
 
       videoEl.addEventListener('canplaythrough', () => {
@@ -242,6 +274,10 @@
           clearTimeout(seekDebounceTimer);
           seekDebounceTimer = null;
         }
+        if (syncStartTimer) {
+          clearTimeout(syncStartTimer);
+          syncStartTimer = null;
+        }
         videoEl.pause();
         videoEl.currentTime = 0;
         videoEl.playbackRate = 1.0;
@@ -250,6 +286,7 @@
         isVideoVisible = false;
         isNearEnd = false;
         isSeeking = false;
+        lastSyncPlaybackRate = 1.0;
         if (isVideoVisible) {
           title.textContent = "Music Player";
         }
@@ -291,25 +328,45 @@
           return;
         }
 
+        // Cek apakah ada buffered data di target position
+        if (!isBufferedAtTime(safeTime) && getBufferedDuration() < MIN_BUFFERED_DURATION) {
+          updateStatus('Buffering video...');
+          // Wait for buffer, retry setelah 200ms
+          setTimeout(() => {
+            if (!p.paused && started) {
+              showVideoAt(time);
+            }
+          }, 200);
+          return;
+        }
+
         videoEl.currentTime = safeTime;
         
         // Wait for buffer before playing
         const tryPlay = () => {
-          if (videoEl.readyState >= 3 && !isSeeking) {
-            videoEl.play().catch(err => {
-              console.log("Play prevented:", err);
-              // Retry after a short delay
-              setTimeout(tryPlay, 200);
-            });
+          if ((videoEl.readyState >= 2 || isBufferedAtTime(safeTime)) && !isSeeking) {
+            const playPromise = videoEl.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(err => {
+                console.log("Play prevented:", err);
+                // Retry after a short delay
+                setTimeout(tryPlay, 200);
+              });
+            }
           } else {
             updateStatus('Buffering video...');
-            setTimeout(tryPlay, 100);
+            setTimeout(tryPlay, 150);
           }
         };
         
         tryPlay();
         started = true;
-        startSync();
+        
+        // Delay sebelum mulai sync untuk biar video settle dulu
+        if (syncStartTimer) clearTimeout(syncStartTimer);
+        syncStartTimer = setTimeout(() => {
+          startSync();
+        }, SYNC_START_DELAY);
       }
 
       function hideVideo() {
@@ -338,26 +395,38 @@
           const drift = targetVideoTime - currentVideoTime;
           const absDrift = Math.abs(drift);
 
-          // Hard sync jika drift terlalu besar (tapi cek boundary dulu)
+          // Hard sync jika drift SANGAT besar
           if (absDrift > HARD_SYNC_THRESHOLD) {
             const safeTime = clampVideoTime(targetVideoTime);
-            if (isValidVideoTime(safeTime) && !isSeeking) {
+            // Pastikan ada buffered data sebelum seek
+            if (isBufferedAtTime(safeTime) && !isSeeking) {
               videoEl.currentTime = safeTime;
             }
             videoEl.playbackRate = 1.0;
+            lastSyncPlaybackRate = 1.0;
           }
-          // Smooth sync dengan adjust playback rate
+          // Smooth sync dengan adjust playback rate (LESS AGGRESSIVE)
           else if (absDrift > DRIFT_THRESHOLD) {
+            let newRate = 1.0;
             if (drift > 0) {
-              // Video ketinggalan, percepat sedikit
-              videoEl.playbackRate = 1.0 + PLAYBACK_ADJUST;
+              // Video ketinggalan, percepat SEDIKIT
+              newRate = 1.0 + PLAYBACK_ADJUST;
             } else {
-              // Video terlalu cepat, pelanin sedikit
-              videoEl.playbackRate = 1.0 - PLAYBACK_ADJUST;
+              // Video terlalu cepat, pelanin SEDIKIT
+              newRate = 1.0 - PLAYBACK_ADJUST;
+            }
+            
+            // Jangan ubah playback rate kalo udah sama
+            if (Math.abs(lastSyncPlaybackRate - newRate) > 0.001) {
+              videoEl.playbackRate = newRate;
+              lastSyncPlaybackRate = newRate;
             }
           } else {
             // Sudah sync, reset ke normal speed
-            videoEl.playbackRate = 1.0;
+            if (lastSyncPlaybackRate !== 1.0) {
+              videoEl.playbackRate = 1.0;
+              lastSyncPlaybackRate = 1.0;
+            }
           }
         }
       }
@@ -482,6 +551,7 @@
         if (started) {
           videoEl.pause();
           videoEl.playbackRate = 1.0;
+          lastSyncPlaybackRate = 1.0;
         }
       });
 
