@@ -127,6 +127,7 @@
     const DRIFT_THRESHOLD = 0.8;      // Baru sync jika drift > 0.8 detik
     const HARD_SYNC_THRESHOLD = 2.0;  // Hard jump jika drift > 2 detik
     const PLAYBACK_ADJUST = 0.03;     // Adjust speed max 3%
+    const END_BUFFER = 1.0;           // Stop sync 1 detik sebelum video habis
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -139,6 +140,7 @@
       let syncTimer = null;
       let videoReady = false;
       let isBuffering = false;
+      let videoDuration = 0;
 
       // Preload video saat user interact
       trackEl.addEventListener('mouseenter', () => {
@@ -162,6 +164,7 @@
 
       // Video event handlers
       videoEl.addEventListener('loadedmetadata', () => {
+        videoDuration = videoEl.duration;
         updateStatus('Video Ready');
       });
 
@@ -184,6 +187,30 @@
         updateStatus('Network slow...');
       });
 
+      // Error handling untuk video
+      videoEl.addEventListener('error', (e) => {
+        console.error('Video error:', e);
+        updateStatus('Video error!');
+        hideVideo();
+      });
+
+      // Helper: cek apakah waktu valid untuk video
+      function isValidVideoTime(time) {
+        if (!videoDuration || videoDuration === 0) {
+          videoDuration = videoEl.duration || 0;
+        }
+        return time >= 0 && time < (videoDuration - 0.1);
+      }
+
+      // Helper: clamp time ke range yang valid
+      function clampVideoTime(time) {
+        if (!videoDuration || videoDuration === 0) {
+          videoDuration = videoEl.duration || 0;
+        }
+        const maxTime = Math.max(0, videoDuration - 0.2);
+        return Math.max(0, Math.min(time, maxTime));
+      }
+
       function showVideoAt(time) {
         if (!isVideoVisible) {
           // Hide all other videos
@@ -200,9 +227,18 @@
           isVideoVisible = true;
         }
         
-        // Set video time
+        // Set video time dengan boundary check
         const targetTime = Math.max(0, time - trigger);
-        videoEl.currentTime = targetTime;
+        const safeTime = clampVideoTime(targetTime);
+        
+        // Jangan seek kalau udah terlalu deket akhir
+        if (isValidVideoTime(safeTime)) {
+          videoEl.currentTime = safeTime;
+        } else {
+          // Video udah mau habis, langsung hide
+          hideVideo();
+          return;
+        }
         
         // Wait for buffer before playing
         const tryPlay = () => {
@@ -238,17 +274,32 @@
       }
 
       function smoothSync() {
-        // Jangan sync kalau lagi buffering
+        // Jangan sync kalau lagi buffering atau paused
         if (!p.paused && started && !isBuffering && videoEl.readyState >= 2) {
           const audioTime = p.currentTime;
           const targetVideoTime = Math.max(0, audioTime - trigger);
+          
+          // PENTING: Jangan sync kalau video udah deket akhir
+          if (!videoDuration) {
+            videoDuration = videoEl.duration || 0;
+          }
+          
+          // Stop sync kalau video tinggal 1 detik
+          if (videoDuration > 0 && targetVideoTime > (videoDuration - END_BUFFER)) {
+            videoEl.playbackRate = 1.0;
+            return;
+          }
+
           const currentVideoTime = videoEl.currentTime;
           const drift = targetVideoTime - currentVideoTime;
           const absDrift = Math.abs(drift);
 
-          // Hard sync jika drift terlalu besar
+          // Hard sync jika drift terlalu besar (tapi cek boundary dulu)
           if (absDrift > HARD_SYNC_THRESHOLD) {
-            videoEl.currentTime = targetVideoTime;
+            const safeTime = clampVideoTime(targetVideoTime);
+            if (isValidVideoTime(safeTime)) {
+              videoEl.currentTime = safeTime;
+            }
             videoEl.playbackRate = 1.0;
           }
           // Smooth sync dengan adjust playback rate
@@ -308,12 +359,21 @@
       p.addEventListener("timeupdate", () => {
         const t = p.currentTime;
         
+        // Trigger video saat mencapai waktu
         if (!started && t >= trigger && !p.paused) {
           showVideoAt(t);
         }
         
-        if (started && p.ended) {
-          hideVideo();
+        // Hide video saat audio selesai atau mendekati akhir
+        if (started) {
+          if (p.ended) {
+            hideVideo();
+          }
+          // Auto-hide kalau video udah mau habis
+          const targetVideoTime = t - trigger;
+          if (videoDuration > 0 && targetVideoTime > (videoDuration - 0.5)) {
+            hideVideo();
+          }
         }
       });
 
@@ -335,10 +395,9 @@
         }
       });
 
-      // Video ended
+      // Video ended - hide everything
       videoEl.addEventListener("ended", () => {
         hideVideo();
-        p.pause();
       });
 
       // Audio ended
