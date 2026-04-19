@@ -127,7 +127,8 @@
     const DRIFT_THRESHOLD = 0.8;      // Baru sync jika drift > 0.8 detik
     const HARD_SYNC_THRESHOLD = 2.0;  // Hard jump jika drift > 2 detik
     const PLAYBACK_ADJUST = 0.03;     // Adjust speed max 3%
-    const END_BUFFER = 1.0;           // Stop sync 1 detik sebelum video habis
+    const END_BUFFER = 2.0;           // Stop showing video 2 detik sebelum habis
+    const SEEK_DEBOUNCE = 300;        // Debounce seek 300ms
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -141,6 +142,9 @@
       let videoReady = false;
       let isBuffering = false;
       let videoDuration = 0;
+      let isSeeking = false;
+      let seekDebounceTimer = null;
+      let isNearEnd = false;
 
       // Preload video saat user interact
       trackEl.addEventListener('mouseenter', () => {
@@ -187,11 +191,20 @@
         updateStatus('Network slow...');
       });
 
+      // Detect video seeking
+      videoEl.addEventListener('seeking', () => {
+        isSeeking = true;
+      });
+
+      videoEl.addEventListener('seeked', () => {
+        isSeeking = false;
+      });
+
       // Error handling untuk video
       videoEl.addEventListener('error', (e) => {
         console.error('Video error:', e);
         updateStatus('Video error!');
-        hideVideo();
+        fullReset();
       });
 
       // Helper: cek apakah waktu valid untuk video
@@ -211,7 +224,48 @@
         return Math.max(0, Math.min(time, maxTime));
       }
 
+      // Helper: cek apakah audio mendekati waktu dimana video akan habis
+      function checkIfNearEnd() {
+        if (!videoDuration) {
+          videoDuration = videoEl.duration || 0;
+        }
+        if (videoDuration === 0) return false;
+        
+        const targetVideoTime = Math.max(0, p.currentTime - trigger);
+        return targetVideoTime > (videoDuration - END_BUFFER);
+      }
+
+      // Full reset untuk cleanup
+      function fullReset() {
+        stopSync();
+        if (seekDebounceTimer) {
+          clearTimeout(seekDebounceTimer);
+          seekDebounceTimer = null;
+        }
+        videoEl.pause();
+        videoEl.currentTime = 0;
+        videoEl.playbackRate = 1.0;
+        videoEl.style.display = "none";
+        started = false;
+        isVideoVisible = false;
+        isNearEnd = false;
+        isSeeking = false;
+        if (isVideoVisible) {
+          title.textContent = "Music Player";
+        }
+        statusEl.style.display = 'none';
+      }
+
       function showVideoAt(time) {
+        // Jangan show kalau mendekati akhir
+        if (checkIfNearEnd()) {
+          isNearEnd = true;
+          fullReset();
+          return;
+        }
+
+        isNearEnd = false;
+
         if (!isVideoVisible) {
           // Hide all other videos
           videos.forEach(v => {
@@ -232,17 +286,16 @@
         const safeTime = clampVideoTime(targetTime);
         
         // Jangan seek kalau udah terlalu deket akhir
-        if (isValidVideoTime(safeTime)) {
-          videoEl.currentTime = safeTime;
-        } else {
-          // Video udah mau habis, langsung hide
-          hideVideo();
+        if (!isValidVideoTime(safeTime)) {
+          fullReset();
           return;
         }
+
+        videoEl.currentTime = safeTime;
         
         // Wait for buffer before playing
         const tryPlay = () => {
-          if (videoEl.readyState >= 3) {
+          if (videoEl.readyState >= 3 && !isSeeking) {
             videoEl.play().catch(err => {
               console.log("Play prevented:", err);
               // Retry after a short delay
@@ -260,22 +313,12 @@
       }
 
       function hideVideo() {
-        if (isVideoVisible) {
-          videoEl.pause();
-          videoEl.currentTime = 0;
-          videoEl.playbackRate = 1.0;
-          videoEl.style.display = "none";
-          title.textContent = "Music Player";
-          isVideoVisible = false;
-        }
-        started = false;
-        statusEl.style.display = 'none';
-        stopSync();
+        fullReset();
       }
 
       function smoothSync() {
-        // Jangan sync kalau lagi buffering atau paused
-        if (!p.paused && started && !isBuffering && videoEl.readyState >= 2) {
+        // Jangan sync kalau lagi buffering, paused, atau seeking
+        if (!p.paused && started && !isBuffering && !isSeeking && videoEl.readyState >= 2) {
           const audioTime = p.currentTime;
           const targetVideoTime = Math.max(0, audioTime - trigger);
           
@@ -284,9 +327,10 @@
             videoDuration = videoEl.duration || 0;
           }
           
-          // Stop sync kalau video tinggal 1 detik
+          // Stop sync dan hide kalau mendekati akhir
           if (videoDuration > 0 && targetVideoTime > (videoDuration - END_BUFFER)) {
-            videoEl.playbackRate = 1.0;
+            isNearEnd = true;
+            fullReset();
             return;
           }
 
@@ -297,7 +341,7 @@
           // Hard sync jika drift terlalu besar (tapi cek boundary dulu)
           if (absDrift > HARD_SYNC_THRESHOLD) {
             const safeTime = clampVideoTime(targetVideoTime);
-            if (isValidVideoTime(safeTime)) {
+            if (isValidVideoTime(safeTime) && !isSeeking) {
               videoEl.currentTime = safeTime;
             }
             videoEl.playbackRate = 1.0;
@@ -332,6 +376,9 @@
 
       // Audio play event
       p.addEventListener("play", () => {
+        // Reset near-end flag saat play ulang
+        isNearEnd = false;
+
         // Pause other players
         players.forEach(o => { 
           if (o !== p) o.pause();
@@ -347,10 +394,17 @@
           }
         });
 
+        // Cek apakah mendekati akhir
+        if (checkIfNearEnd()) {
+          isNearEnd = true;
+          fullReset();
+          return;
+        }
+
         // Show video if past trigger
-        if (p.currentTime >= trigger) {
+        if (p.currentTime >= trigger && !isNearEnd) {
           showVideoAt(p.currentTime);
-        } else if (started && videoEl.paused) {
+        } else if (started && videoEl.paused && !isNearEnd) {
           videoEl.play().catch(() => {});
         }
       });
@@ -359,32 +413,68 @@
       p.addEventListener("timeupdate", () => {
         const t = p.currentTime;
         
+        // Cek near end
+        if (checkIfNearEnd()) {
+          if (!isNearEnd) {
+            isNearEnd = true;
+            fullReset();
+          }
+          return;
+        } else {
+          isNearEnd = false;
+        }
+        
         // Trigger video saat mencapai waktu
-        if (!started && t >= trigger && !p.paused) {
+        if (!started && t >= trigger && !p.paused && !isNearEnd) {
           showVideoAt(t);
         }
         
-        // Hide video saat audio selesai atau mendekati akhir
-        if (started) {
-          if (p.ended) {
-            hideVideo();
-          }
-          // Auto-hide kalau video udah mau habis
-          const targetVideoTime = t - trigger;
-          if (videoDuration > 0 && targetVideoTime > (videoDuration - 0.5)) {
-            hideVideo();
-          }
+        // Hide video saat audio selesai
+        if (started && p.ended) {
+          fullReset();
         }
       });
 
-      // Audio seek event
+      // Audio seek event dengan debounce
+      p.addEventListener("seeking", () => {
+        // Stop sync saat seeking untuk prevent race condition
+        stopSync();
+      });
+
       p.addEventListener("seeked", () => {
-        const t = p.currentTime;
-        if (t >= trigger && !p.paused) {
-          showVideoAt(t);
-        } else {
-          hideVideo();
+        // Clear debounce timer sebelumnya
+        if (seekDebounceTimer) {
+          clearTimeout(seekDebounceTimer);
         }
+
+        // Debounce untuk handle spam seeking
+        seekDebounceTimer = setTimeout(() => {
+          const t = p.currentTime;
+          
+          // Reset near-end flag
+          isNearEnd = false;
+
+          // Cek apakah mendekati akhir
+          if (checkIfNearEnd()) {
+            isNearEnd = true;
+            fullReset();
+            return;
+          }
+
+          // Show atau hide berdasarkan posisi
+          if (t >= trigger && !p.paused && !isNearEnd) {
+            // Full reset dulu untuk cleanup state
+            fullReset();
+            // Tunggu sebentar baru show lagi
+            setTimeout(() => {
+              if (!p.paused && !isNearEnd) {
+                showVideoAt(t);
+              }
+            }, 50);
+          } else {
+            fullReset();
+          }
+        }, SEEK_DEBOUNCE);
       });
 
       // Audio pause
@@ -397,12 +487,12 @@
 
       // Video ended - hide everything
       videoEl.addEventListener("ended", () => {
-        hideVideo();
+        fullReset();
       });
 
       // Audio ended
       p.addEventListener("ended", () => {
-        hideVideo();
+        fullReset();
       });
     });
 
