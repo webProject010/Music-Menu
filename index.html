@@ -38,6 +38,7 @@
       padding: 15px;
       margin-bottom: 20px;
       border-radius: 10px;
+      position: relative;
     }
     .track-title {
       font-weight: bold;
@@ -56,37 +57,55 @@
       z-index: -1;
       display: none;
     }
+    .loading-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      padding: 10px 20px;
+      border-radius: 5px;
+      display: none;
+      font-size: 0.9em;
+      z-index: 10;
+    }
+    .track.loading .loading-indicator {
+      display: block;
+    }
   </style>
 </head>
 <body>
 
   <h1 id="title">Music Player</h1>
 
-  <!-- Video elements -->
-  <video id="video-funk" class="bg-video" muted preload="auto">
+  <!-- Video elements - preload="none" untuk performa lebih baik -->
+  <video id="video-funk" class="bg-video" muted preload="none">
     <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
-  <video id="video-stay" class="bg-video" muted preload="auto">
+  <video id="video-stay" class="bg-video" muted preload="none">
     <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
   </video>
-  <video id="video-girl" class="bg-video" muted preload="auto">
+  <video id="video-girl" class="bg-video" muted preload="none">
     <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
   </video>
 
   <div class="music-container">
-    <div class="track">
+    <div class="track" data-track="0">
+      <div class="loading-indicator">Loading video...</div>
       <div class="track-title">Irokz - Funk Universo</div>
       <audio controls data-trigger="73.3" data-video="video-funk">
         <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
       </audio>
     </div>
-    <div class="track">
+    <div class="track" data-track="1">
+      <div class="loading-indicator">Loading video...</div>
       <div class="track-title">Justin Bieber - STAY Remix</div>
       <audio controls data-trigger="25.3" data-video="video-stay">
         <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
       </audio>
     </div>
-    <div class="track">
+    <div class="track" data-track="2">
+      <div class="loading-indicator">Loading video...</div>
       <div class="track-title">Sinammota - Girl A</div>
       <audio controls data-trigger="69" data-video="video-girl">
         <source src="https://files.catbox.moe/8s572t.mp3" type="audio/mp3" />
@@ -99,25 +118,73 @@
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
 
-    const useRealtime = false; // true = sync tiap frame, false = interval
-    const syncInterval = 6000; // ms, default tiap 3 detik
+    // Sync interval yang lebih cepat untuk menghindari drift
+    const syncInterval = 200; // ms, sync tiap 200ms
+
+    let currentActivePlayer = null;
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
+      const trackEl = p.closest('.track');
+      
       let started   = false;
       let isVideoVisible = false;
       let syncTimer = null;
-      let rafId     = null;
+      let videoLoaded = false;
+
+      // Preload video saat user hover/interact dengan track
+      trackEl.addEventListener('mouseenter', () => {
+        if (!videoLoaded && videoEl.readyState < 2) {
+          videoEl.load();
+        }
+      }, { once: true });
+
+      // Video loading handlers
+      videoEl.addEventListener('loadeddata', () => {
+        videoLoaded = true;
+        trackEl.classList.remove('loading');
+      });
+
+      videoEl.addEventListener('waiting', () => {
+        trackEl.classList.add('loading');
+      });
+
+      videoEl.addEventListener('canplay', () => {
+        trackEl.classList.remove('loading');
+      });
 
       function showVideoAt(time) {
+        // Load video jika belum loaded
+        if (!videoLoaded && videoEl.readyState < 2) {
+          trackEl.classList.add('loading');
+          videoEl.load();
+        }
+
         if (!isVideoVisible) {
+          // Sembunyikan semua video lain
+          videos.forEach(v => {
+            if (v !== videoEl) {
+              v.pause();
+              v.style.display = "none";
+            }
+          });
+
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
           isVideoVisible = true;
         }
+        
         videoEl.currentTime = Math.max(0, time - trigger);
-        videoEl.play().catch(()=>{});
+        
+        // Play dengan promise handling
+        const playPromise = videoEl.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.log("Video play prevented:", err);
+          });
+        }
+        
         started = true;
         startSync();
       }
@@ -131,13 +198,15 @@
           isVideoVisible = false;
         }
         started = false;
+        trackEl.classList.remove('loading');
         stopSync();
       }
 
       function syncVideo() {
-        if (!p.paused && started) {
+        if (!p.paused && started && !videoEl.paused) {
           let targetTime = Math.max(0, p.currentTime - trigger);
           let diff = Math.abs(videoEl.currentTime - targetTime);
+          // Sync jika difference lebih dari 0.3 detik
           if (diff > 0.3) {
             videoEl.currentTime = targetTime;
           }
@@ -146,15 +215,7 @@
 
       function startSync() {
         stopSync();
-        if (useRealtime) {
-          const loop = () => {
-            syncVideo();
-            rafId = requestAnimationFrame(loop);
-          };
-          rafId = requestAnimationFrame(loop);
-        } else {
-          syncTimer = setInterval(syncVideo, syncInterval);
-        }
+        syncTimer = setInterval(syncVideo, syncInterval);
       }
 
       function stopSync() {
@@ -162,46 +223,89 @@
           clearInterval(syncTimer);
           syncTimer = null;
         }
-        if (rafId) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-        }
       }
 
+      // Event: saat audio mulai play
       p.addEventListener("play", () => {
-        players.forEach(o => { if (o!==p) o.pause(); });
-        videos.forEach(v => { if (v!==videoEl) { v.pause(); v.style.display="none"; }});
-        started = false;
+        // Pause semua player lain
+        players.forEach(o => { 
+          if (o !== p) {
+            o.pause();
+          }
+        });
+
+        // Reset semua video lain
+        videos.forEach(v => { 
+          if (v !== videoEl) { 
+            v.pause(); 
+            v.currentTime = 0;
+            v.style.display = "none"; 
+          }
+        });
+
+        currentActivePlayer = p;
+
+        // Jika sudah melewati trigger point, langsung show video
+        if (p.currentTime >= trigger) {
+          showVideoAt(p.currentTime);
+        } else if (started) {
+          // Resume video jika sudah started sebelumnya
+          if (videoEl.paused) {
+            videoEl.play().catch(err => console.log("Resume failed:", err));
+          }
+        }
       });
 
+      // Event: update waktu audio
       p.addEventListener("timeupdate", () => {
         const t = p.currentTime;
-        if (!started && t >= trigger) {
+        
+        // Trigger video saat mencapai waktu tertentu
+        if (!started && t >= trigger && !p.paused) {
           showVideoAt(t);
         }
+        
+        // Hide video saat audio selesai
         if (started && p.ended) {
           hideVideo();
         }
       });
 
+      // Event: saat user seek/skip
       p.addEventListener("seeked", () => {
         const t = p.currentTime;
-        if (t >= trigger) {
+        if (t >= trigger && !p.paused) {
           showVideoAt(t);
         } else {
           hideVideo();
         }
       });
 
+      // Event: pause audio = pause video
       p.addEventListener("pause", () => {
-        if (started) videoEl.pause();
+        if (started) {
+          videoEl.pause();
+        }
       });
 
-      p.addEventListener("play", () => {
-        if (started && videoEl.paused) videoEl.play().catch(()=>{});
+      // Event: video selesai
+      videoEl.addEventListener("ended", () => {
+        hideVideo();
+        p.pause();
       });
 
-      videoEl.addEventListener("ended", hideVideo);
+      // Cleanup saat audio selesai
+      p.addEventListener("ended", () => {
+        hideVideo();
+      });
+    });
+
+    // Cleanup saat page visibility berubah
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        players.forEach(p => p.pause());
+        videos.forEach(v => v.pause());
+      }
     });
   </script>
 </body>
