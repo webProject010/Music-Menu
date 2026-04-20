@@ -55,6 +55,68 @@
     .toggle-btn:hover {
       transform: scale(1.05);
     }
+    /* Settings Panel */
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .settings-panel.open {
+      display: flex;
+    }
+    .settings-content {
+      background: rgba(31, 31, 31, 0.95);
+      border-radius: 15px;
+      padding: 30px;
+      max-width: 400px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    }
+    .settings-content h3 {
+      margin: 0 0 20px 0;
+      font-size: 1.5em;
+    }
+    .settings-group {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .settings-group:last-of-type {
+      border-bottom: none;
+    }
+    .settings-group h4 {
+      margin: 0 0 10px 0;
+      font-size: 0.9em;
+      color: #ccc;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .settings-group .toggle-btn {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+    .close-btn {
+      background: rgba(100, 100, 100, 0.8);
+      border: 2px solid #666;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: bold;
+      width: 100%;
+      margin-top: 20px;
+      transition: all 0.3s ease;
+    }
+    .close-btn:hover {
+      background: rgba(150, 150, 150, 0.8);
+    }
     .music-container {
       background: rgba(31,31,31,0.85);
       border-radius: 15px;
@@ -121,7 +183,26 @@
   <h1 id="title">Music Player</h1>
 
   <div class="controls">
-    <button class="toggle-btn" id="hardSyncToggle">Hard Sync: OFF</button>
+    <button class="toggle-btn" id="settingsBtn">⚙️ Settings</button>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-content">
+      <h3>Settings</h3>
+      
+      <div class="settings-group">
+        <h4>Transisi</h4>
+        <button class="toggle-btn" id="transitionToggle">Transition: ON</button>
+      </div>
+      
+      <div class="settings-group">
+        <h4>⚠️ Experimental</h4>
+        <button class="toggle-btn" id="hardSyncToggle">Hard Sync: OFF</button>
+      </div>
+      
+      <button class="close-btn" id="closeSettingsBtn">✕ Close</button>
+    </div>
   </div>
 
   <!-- Video elements -->
@@ -163,24 +244,56 @@
     const players = document.querySelectorAll("audio");
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
+    const settingsBtn = document.getElementById("settingsBtn");
+    const settingsPanel = document.getElementById("settingsPanel");
+    const closeSettingsBtn = document.getElementById("closeSettingsBtn");
     const hardSyncToggle = document.getElementById("hardSyncToggle");
+    const transitionToggle = document.getElementById("transitionToggle");
 
-    // Global Hard Sync state
+    // Global states
     let hardSyncMode = false;
+    let transitionEnabled = true;
 
+    // Settings Panel Toggle
+    settingsBtn.addEventListener('click', () => {
+      settingsPanel.classList.add('open');
+    });
+
+    closeSettingsBtn.addEventListener('click', () => {
+      settingsPanel.classList.remove('open');
+    });
+
+    // Close settings saat click outside
+    settingsPanel.addEventListener('click', (e) => {
+      if (e.target === settingsPanel) {
+        settingsPanel.classList.remove('open');
+      }
+    });
+
+    // Hard Sync Toggle
     hardSyncToggle.addEventListener('click', () => {
       hardSyncMode = !hardSyncMode;
       hardSyncToggle.textContent = hardSyncMode ? 'Hard Sync: ON' : 'Hard Sync: OFF';
       hardSyncToggle.classList.toggle('active', hardSyncMode);
     });
 
-    // Konfigurasi sync
-    const SYNC_CHECK_INTERVAL = 500;   // Check sync lebih sering untuk catch drift
-    const DRIFT_THRESHOLD = 1.0;       // Hard sync jika drift > 1 detik
+    // Transition Toggle
+    transitionToggle.addEventListener('click', () => {
+      transitionEnabled = !transitionEnabled;
+      transitionToggle.textContent = transitionEnabled ? 'Transition: ON' : 'Transition: OFF';
+      transitionToggle.classList.toggle('active', transitionEnabled);
+    });
+
+    // Set initial states
+    transitionToggle.classList.toggle('active', transitionEnabled);
+
+    // Konfigurasi sync OPTIMIZED
+    const SYNC_CHECK_INTERVAL = 1500;  // Check sync JARANG (1.5 detik) - reduce codec stress
+    const DRIFT_THRESHOLD = 1.0;       // Threshold (tidak dipakai lagi)
     const END_BUFFER = 2.0;            // Hide 2 detik sebelum akhir
     const SEEK_DEBOUNCE = 300;         // Debounce seek
     const MIN_BUFFERED_DURATION = 2.0; // Tunggu sampai 2 detik buffered sebelum play
-    const SYNC_START_DELAY = 500;      // Delay 0.5 detik sebelum mulai sync (faster!)
+    const SYNC_START_DELAY = 500;      // Delay 0.5 detik sebelum mulai sync
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -338,6 +451,7 @@
         title.classList.remove('hide-ui');
         const musicContainer = document.querySelector('.music-container');
         musicContainer.classList.remove('hide-ui');
+        settingsBtn.style.display = 'block'; // Restore settings button visibility
         
         videoEl.pause();
         videoEl.currentTime = 0;
@@ -380,11 +494,6 @@
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
           isVideoVisible = true;
-
-          // Mulai transisi sekarang
-          title.classList.add('hide-ui');
-          trackEl.closest('.music-container').classList.add('hide-ui');
-          transitionStarted = true;
         }
         
         const targetTime = Math.max(0, time - trigger);
@@ -407,30 +516,26 @@
 
         videoEl.currentTime = safeTime;
         
-        // PLAY setelah 1 detik transisi
-        setTimeout(() => {
-          if (!p.paused && started && !isNearEnd) {
-            const tryPlay = () => {
-              if ((videoEl.readyState >= 2 || isBufferedAtTime(safeTime)) && !isSeeking) {
-                const playPromise = videoEl.play();
-                if (playPromise !== undefined) {
-                  playPromise.catch(err => {
-                    console.log("Play prevented:", err);
-                    setTimeout(tryPlay, 200);
-                  });
-                }
-              } else {
-                updateStatus('Loading...');
+        // PLAY LANGSUNG (transisi sudah 1 detik, selesai pas trigger)
+        const tryPlay = () => {
+          if ((videoEl.readyState >= 2 || isBufferedAtTime(safeTime)) && !isSeeking) {
+            const playPromise = videoEl.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(err => {
+                console.log("Play prevented:", err);
                 setTimeout(tryPlay, 200);
-              }
-            };
-            
-            tryPlay();
-            
-            // Start sync IMMEDIATELY setelah play (untuk catch drift dari awal)
-            startSync();
+              });
+            }
+          } else {
+            updateStatus('Loading...');
+            setTimeout(tryPlay, 200);
           }
-        }, 1000);
+        };
+        
+        tryPlay();
+        
+        // Start sync IMMEDIATELY setelah play
+        startSync();
 
         started = true;
       }
@@ -460,21 +565,51 @@
           const drift = targetVideoTime - currentVideoTime;
           const absDrift = Math.abs(drift);
 
-          // HARD SYNC MODE atau drift > 1 detik = seek
-          if ((hardSyncMode || absDrift > DRIFT_THRESHOLD) && absDrift > 0.05) {
+          // Don't sync kalau buffer sedang loading
+          if (videoEl.buffered.length === 0 || getBufferedDuration() < 1.0) {
+            videoEl.playbackRate = 1.0;
+            return;
+          }
+
+          // Hard Sync Mode: seek langsung (tapi hanya untuk BESAR drift)
+          if (hardSyncMode && absDrift > 2.0) {
             const safeTime = clampVideoTime(targetVideoTime);
-            
             if (targetVideoTime < (videoDuration - END_BUFFER - 2.0)) {
               if (isBufferedAtTime(safeTime) && !isSeeking) {
-                console.log(`Syncing (drift: ${absDrift.toFixed(2)}s, mode: ${hardSyncMode ? 'HARD' : 'AUTO'})...`);
+                console.log(`[HARD SYNC] Seeking (drift: ${absDrift.toFixed(2)}s)...`);
                 videoEl.currentTime = safeTime;
                 lastAttemptedSeekTime = safeTime;
               }
             }
+            videoEl.playbackRate = 1.0;
+            return;
           }
-          
-          // Always reset playback rate to 1.0
-          videoEl.playbackRate = 1.0;
+
+          // Auto Mode: Playback rate adjustment dengan HYSTERESIS
+          // Only adjust jika drift significant (> 0.2s)
+          if (absDrift > 0.2) {
+            let newRate = 1.0;
+            
+            if (drift > 0) {
+              // Video ketinggalan, speedup (tapi GENTLE)
+              // Max rate: 1.05x (5% lebih cepat)
+              const speedupAmount = Math.min(drift * 0.08, 0.05);
+              newRate = 1.0 + speedupAmount;
+              console.log(`Video lag ${drift.toFixed(2)}s → speed ${newRate.toFixed(3)}x`);
+            } else {
+              // Video lebih cepat, slowdown (tapi GENTLE)
+              // Min rate: 0.95x (5% lebih lambat)
+              const slowdownAmount = Math.max(drift * 0.08, -0.05);
+              newRate = 1.0 + slowdownAmount;
+              console.log(`Video ahead ${Math.abs(drift).toFixed(2)}s → speed ${newRate.toFixed(3)}x`);
+            }
+            
+            videoEl.playbackRate = newRate;
+          } else if (absDrift <= 0.1) {
+            // Drift kecil, back to normal
+            videoEl.playbackRate = 1.0;
+          }
+          // else: 0.1 < drift < 0.2, maintain current rate (hysteresis zone)
         }
       }
 
@@ -529,26 +664,13 @@
       p.addEventListener("timeupdate", () => {
         const t = p.currentTime;
         
-        // Trigger transisi 1 detik SEBELUM audio reach trigger
-        if (!transitionStarted && !started && (t >= trigger - 1.0) && (t < trigger) && !p.paused) {
-          // Mulai transisi lebih awal
-          if (!isVideoVisible) {
-            videos.forEach(v => {
-              if (v !== videoEl) {
-                v.pause();
-                v.style.display = "none";
-                v.playbackRate = 1.0;
-              }
-            });
-
-            videoEl.style.display = "block";
-            title.textContent = "EASTER EGG FOUND";
-            isVideoVisible = true;
-
-            title.classList.add('hide-ui');
-            trackEl.closest('.music-container').classList.add('hide-ui');
-            transitionStarted = true;
-          }
+        // Trigger transisi 1 detik SEBELUM audio reach trigger (JIKA ENABLED)
+        if (transitionEnabled && !transitionStarted && !started && (t >= trigger - 1.0) && (t < trigger) && !p.paused) {
+          title.classList.add('hide-ui');
+          trackEl.closest('.music-container').classList.add('hide-ui');
+          settingsBtn.style.display = 'none'; // Hide settings button during transition
+          settingsPanel.classList.remove('open');
+          transitionStarted = true;
         }
         
         // Trigger video saat mencapai waktu
