@@ -22,6 +22,12 @@
       margin: 5vw 0 3vw;
       text-align: center;
       z-index: 1;
+      transition: all 0.4s ease;
+    }
+    h1.hide-ui {
+      transform: translateY(-150px);
+      opacity: 0;
+      pointer-events: none;
     }
     .music-container {
       background: rgba(31,31,31,0.85);
@@ -32,6 +38,12 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       z-index: 1;
       position: relative;
+      transition: all 0.4s ease;
+    }
+    .music-container.hide-ui {
+      transform: translateY(200px);
+      opacity: 0;
+      pointer-events: none;
     }
     .track {
       background: #2a2a2a;
@@ -264,7 +276,8 @@
         if (videoDuration === 0) return false;
         
         const targetVideoTime = Math.max(0, p.currentTime - trigger);
-        return targetVideoTime > (videoDuration - END_BUFFER);
+        // Hanya hide saat benar-benar mau habis (0.5 detik sebelum akhir)
+        return targetVideoTime > (videoDuration - 0.5);
       }
 
       // Full reset untuk cleanup
@@ -278,6 +291,12 @@
           clearTimeout(syncStartTimer);
           syncStartTimer = null;
         }
+        
+        // Restore UI animation
+        title.classList.remove('hide-ui');
+        const musicContainer = document.querySelector('.music-container');
+        musicContainer.classList.remove('hide-ui');
+        
         videoEl.pause();
         videoEl.currentTime = 0;
         videoEl.playbackRate = 1.0;
@@ -287,7 +306,7 @@
         isNearEnd = false;
         isSeeking = false;
         lastSyncPlaybackRate = 1.0;
-        if (isVideoVisible) {
+        if (title.textContent === "EASTER EGG FOUND") {
           title.textContent = "Music Player";
         }
         statusEl.style.display = 'none';
@@ -297,7 +316,8 @@
         // Jangan show kalau mendekati akhir
         if (checkIfNearEnd()) {
           isNearEnd = true;
-          fullReset();
+          videoEl.playbackRate = 1.0;
+          stopSync();
           return;
         }
 
@@ -316,6 +336,10 @@
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
           isVideoVisible = true;
+
+          // Slide down UI animation
+          title.classList.add('hide-ui');
+          trackEl.closest('.music-container').classList.add('hide-ui');
         }
         
         // Set video time dengan boundary check
@@ -384,10 +408,12 @@
             videoDuration = videoEl.duration || 0;
           }
           
-          // Stop sync dan hide kalau mendekati akhir
-          if (videoDuration > 0 && targetVideoTime > (videoDuration - END_BUFFER)) {
+          // Stop sync dan hide kalau mendekati akhir (tambah 3 detik buffer buat safety)
+          if (videoDuration > 0 && targetVideoTime > (videoDuration - END_BUFFER - 3.0)) {
             isNearEnd = true;
-            fullReset();
+            videoEl.playbackRate = 1.0;
+            lastSyncPlaybackRate = 1.0;
+            stopSync(); // Stop sync completely near end
             return;
           }
 
@@ -395,12 +421,15 @@
           const drift = targetVideoTime - currentVideoTime;
           const absDrift = Math.abs(drift);
 
-          // Hard sync jika drift SANGAT besar
+          // Hard sync jika drift SANGAT besar (TAPI jangan di akhir video)
           if (absDrift > HARD_SYNC_THRESHOLD) {
             const safeTime = clampVideoTime(targetVideoTime);
-            // Pastikan ada buffered data sebelum seek
-            if (isBufferedAtTime(safeTime) && !isSeeking) {
-              videoEl.currentTime = safeTime;
+            // JANGAN seek di area akhir
+            if (targetVideoTime < (videoDuration - END_BUFFER - 2.0)) {
+              // Pastikan ada buffered data sebelum seek
+              if (isBufferedAtTime(safeTime) && !isSeeking) {
+                videoEl.currentTime = safeTime;
+              }
             }
             videoEl.playbackRate = 1.0;
             lastSyncPlaybackRate = 1.0;
@@ -466,7 +495,8 @@
         // Cek apakah mendekati akhir
         if (checkIfNearEnd()) {
           isNearEnd = true;
-          fullReset();
+          videoEl.playbackRate = 1.0;
+          stopSync();
           return;
         }
 
@@ -486,7 +516,9 @@
         if (checkIfNearEnd()) {
           if (!isNearEnd) {
             isNearEnd = true;
-            fullReset();
+            stopSync(); // Stop sync immediately
+            videoEl.playbackRate = 1.0; // Reset playback rate
+            // Don't hide, let video finish naturally
           }
           return;
         } else {
