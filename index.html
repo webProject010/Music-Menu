@@ -460,21 +460,41 @@
           const drift = targetVideoTime - currentVideoTime;
           const absDrift = Math.abs(drift);
 
-          // HARD SYNC MODE atau drift > 1 detik = seek
-          if ((hardSyncMode || absDrift > DRIFT_THRESHOLD) && absDrift > 0.05) {
+          // Hard Sync Mode: seek langsung
+          if (hardSyncMode && absDrift > 0.1) {
             const safeTime = clampVideoTime(targetVideoTime);
-            
             if (targetVideoTime < (videoDuration - END_BUFFER - 2.0)) {
               if (isBufferedAtTime(safeTime) && !isSeeking) {
-                console.log(`Syncing (drift: ${absDrift.toFixed(2)}s, mode: ${hardSyncMode ? 'HARD' : 'AUTO'})...`);
+                console.log(`[HARD SYNC] Seeking (drift: ${absDrift.toFixed(2)}s)...`);
                 videoEl.currentTime = safeTime;
                 lastAttemptedSeekTime = safeTime;
               }
             }
+            videoEl.playbackRate = 1.0;
+            return;
           }
-          
-          // Always reset playback rate to 1.0
-          videoEl.playbackRate = 1.0;
+
+          // Auto Mode: Playback rate adjustment untuk catch drift gradually
+          if (absDrift > 0.1) {
+            let newRate = 1.0;
+            
+            if (drift > 0) {
+              // Video ketinggalan, speedup!
+              // Rate = 1.0 + (drift * 0.1) capped at 1.15x
+              newRate = Math.min(1.0 + (Math.abs(drift) * 0.1), 1.15);
+              console.log(`Video lag ${drift.toFixed(2)}s → speed ${newRate.toFixed(3)}x`);
+            } else {
+              // Video lebih cepat, slowdown!
+              // Rate = 1.0 - (drift * 0.1) capped at 0.85x
+              newRate = Math.max(1.0 + (drift * 0.1), 0.85);
+              console.log(`Video ahead ${Math.abs(drift).toFixed(2)}s → speed ${newRate.toFixed(3)}x`);
+            }
+            
+            videoEl.playbackRate = newRate;
+          } else {
+            // Drift < 0.1s, sinkron sudah baik
+            videoEl.playbackRate = 1.0;
+          }
         }
       }
 
