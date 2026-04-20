@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Music Player Menu</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVJkEkM60BN3j8WaXuNvSvedkF529K+uTSTvsLaIlKmWSpY47BWBttaxvEZvkjW48/EvL7+QwADA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     * { box-sizing: border-box; }
     body {
@@ -30,11 +31,25 @@
       pointer-events: none;
     }
     .controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+    }
+    #settingsBtn {
+      width: 50px;
+      height: 50px;
+      padding: 0;
+      border-radius: 50%;
       display: flex;
-      gap: 15px;
-      margin-bottom: 2vw;
-      z-index: 2;
       align-items: center;
+      justify-content: center;
+      font-size: 1.3em;
+      background: rgba(100, 100, 100, 0.8);
+      border: 2px solid #666;
+    }
+    #settingsBtn:hover {
+      transform: scale(1.1);
     }
     .toggle-btn {
       background: rgba(100, 100, 100, 0.8);
@@ -55,35 +70,34 @@
     .toggle-btn:hover {
       transform: scale(1.05);
     }
-    /* Settings Panel */
+    /* Settings Panel - Side Panel */
     .settings-panel {
       position: fixed;
       top: 0;
-      left: 0;
-      width: 100vw;
+      right: -400px;
+      width: 400px;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.7);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
+      background: rgba(31, 31, 31, 0.98);
+      border-left: 2px solid #444;
+      transition: right 0.3s ease;
+      z-index: 1000;
+      overflow-y: auto;
     }
     .settings-panel.open {
-      display: flex;
+      right: 0;
     }
     .settings-content {
-      background: rgba(31, 31, 31, 0.95);
-      border-radius: 15px;
       padding: 30px;
-      max-width: 400px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
     }
     .settings-content h3 {
       margin: 0 0 20px 0;
-      font-size: 1.5em;
+      font-size: 1.3em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     .settings-group {
-      margin-bottom: 20px;
+      margin-bottom: 25px;
       padding-bottom: 20px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     }
@@ -101,21 +115,67 @@
       width: 100%;
       margin-bottom: 8px;
     }
-    .close-btn {
-      background: rgba(100, 100, 100, 0.8);
-      border: 2px solid #666;
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.9em;
-      font-weight: bold;
-      width: 100%;
-      margin-top: 20px;
-      transition: all 0.3s ease;
+    .settings-info {
+      background: rgba(76, 175, 80, 0.1);
+      border-left: 3px solid #4caf50;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      color: #ddd;
+      margin-top: 10px;
+      line-height: 1.5;
     }
-    .close-btn:hover {
-      background: rgba(150, 150, 150, 0.8);
+    .settings-warning {
+      background: rgba(255, 193, 7, 0.1);
+      border-left: 3px solid #ffc107;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      color: #ffc107;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+    .close-settings-icon {
+      font-size: 1.2em;
+      cursor: pointer;
+      color: #999;
+      transition: color 0.2s;
+    }
+    .close-settings-icon:hover {
+      color: #fff;
+    }
+    /* Low Detail Mode */
+    body.low-detail h1 {
+      display: none;
+    }
+    body.low-detail .music-container {
+      display: none;
+    }
+    body.low-detail .obfuscated {
+      font-family: monospace;
+      letter-spacing: 2px;
+    }
+    body.low-detail .settings-content {
+      color: var(--text-color, #fff);
+      background: var(--bg-color, rgba(31, 31, 31, 0.98)) !important;
+    }
+    body.low-detail .settings-content h3,
+    body.low-detail .settings-group h4 {
+      color: var(--text-color, #fff);
+    }
+    body.low-detail .settings-info {
+      color: var(--text-color, #ddd);
+      border-left-color: var(--accent-color, #4caf50);
+      background: var(--info-bg, rgba(76, 175, 80, 0.1));
+    }
+    body.low-detail .toggle-btn {
+      color: var(--text-color, #fff);
+      border-color: var(--accent-color, #666);
+      background: var(--btn-bg, rgba(100, 100, 100, 0.8));
+    }
+    body.low-detail .toggle-btn.active {
+      background: var(--accent-color, rgba(76, 175, 80, 0.8)) !important;
+      border-color: var(--accent-color, #4caf50) !important;
     }
     .music-container {
       background: rgba(31,31,31,0.85);
@@ -183,25 +243,36 @@
   <h1 id="title">Music Player</h1>
 
   <div class="controls">
-    <button class="toggle-btn" id="settingsBtn">⚙️ Settings</button>
+    <button class="toggle-btn" id="settingsBtn"><i class="fas fa-cog"></i></button>
   </div>
 
-  <!-- Settings Panel -->
+  <!-- Settings Panel - Side Panel -->
   <div class="settings-panel" id="settingsPanel">
     <div class="settings-content">
-      <h3>Settings</h3>
+      <h3>
+        Settings
+        <i class="fas fa-times close-settings-icon" id="closeSettingsBtn"></i>
+      </h3>
       
       <div class="settings-group">
-        <h4>Transisi</h4>
+        <h4>General</h4>
         <button class="toggle-btn" id="transitionToggle">Transition: ON</button>
+        <div class="settings-info">
+          Animasi UI slide down saat konten mulai ditampilkan.
+        </div>
+        <button class="toggle-btn" id="lowDetailToggle" style="margin-top: 10px;">Low Detail: OFF</button>
+        <div class="settings-info">
+          Simpel mode yang membuat semuanya benar-benar simpel.
+        </div>
       </div>
       
       <div class="settings-group">
-        <h4>⚠️ Experimental</h4>
+        <h4>Experimental</h4>
         <button class="toggle-btn" id="hardSyncToggle">Hard Sync: OFF</button>
+        <div class="settings-info">
+          Mode hard sync akan melakukan sinkronisasi langsung untuk hasil yang lebih presisi.
+        </div>
       </div>
-      
-      <button class="close-btn" id="closeSettingsBtn">✕ Close</button>
     </div>
   </div>
 
@@ -249,10 +320,86 @@
     const closeSettingsBtn = document.getElementById("closeSettingsBtn");
     const hardSyncToggle = document.getElementById("hardSyncToggle");
     const transitionToggle = document.getElementById("transitionToggle");
+    const lowDetailToggle = document.getElementById("lowDetailToggle");
 
-    // Global states
-    let hardSyncMode = false;
-    let transitionEnabled = true;
+    // Global states dengan localStorage persistence
+    let hardSyncMode = localStorage.getItem('hardSyncMode') === 'true' ? true : false;
+    let transitionEnabled = localStorage.getItem('transitionEnabled') === 'false' ? false : true;
+    let lowDetailMode = localStorage.getItem('lowDetailMode') === 'true' ? true : false;
+
+    // Generate random text
+    function generateRandomText(length) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    }
+
+    // Generate random color
+    function generateRandomColor() {
+      const hue = Math.floor(Math.random() * 360);
+      const saturation = Math.floor(Math.random() * 100);
+      const lightness = Math.floor(Math.random() * 100);
+      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    }
+
+    // Obfuscate all text in DOM recursively
+    function obfuscateAllText(element) {
+      const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+
+      const nodesToObfuscate = [];
+      let node;
+      while (node = walker.nextNode()) {
+        if (node.textContent.trim().length > 0 && node.parentElement.id !== 'settingsBtn') {
+          nodesToObfuscate.push(node);
+        }
+      }
+
+      nodesToObfuscate.forEach(node => {
+        node.textContent = generateRandomText(node.textContent.length);
+        node.parentElement.classList.add('obfuscated');
+      });
+    }
+
+    // Toggle Low Detail dengan random colors
+    function toggleLowDetail() {
+      lowDetailMode = !lowDetailMode;
+      lowDetailToggle.textContent = lowDetailMode ? generateRandomText(16) : 'Low Detail: OFF';
+      lowDetailToggle.classList.toggle('active', lowDetailMode);
+      localStorage.setItem('lowDetailMode', lowDetailMode);
+
+      if (lowDetailMode) {
+        document.body.classList.add('low-detail');
+        
+        // Generate random static colors
+        const textColor = generateRandomColor();
+        const bgColor = `rgba(${Math.floor(Math.random() * 50)}, ${Math.floor(Math.random() * 50)}, ${Math.floor(Math.random() * 50)}, 0.98)`;
+        const accentColor = generateRandomColor();
+        const btnBg = `rgba(${Math.floor(Math.random() * 150)}, ${Math.floor(Math.random() * 150)}, ${Math.floor(Math.random() * 150)}, 0.8)`;
+        const infoBg = `rgba(${Math.floor(Math.random() * 100)}, ${Math.floor(Math.random() * 100)}, ${Math.floor(Math.random() * 100)}, 0.1)`;
+
+        // Apply CSS variables
+        document.documentElement.style.setProperty('--text-color', textColor);
+        document.documentElement.style.setProperty('--bg-color', bgColor);
+        document.documentElement.style.setProperty('--accent-color', accentColor);
+        document.documentElement.style.setProperty('--btn-bg', btnBg);
+        document.documentElement.style.setProperty('--info-bg', infoBg);
+
+        // Obfuscate semua text di page
+        obfuscateAllText(document.body);
+      } else {
+        document.body.classList.remove('low-detail');
+        // Reload untuk restore original
+        location.reload();
+      }
+    }
 
     // Settings Panel Toggle
     settingsBtn.addEventListener('click', () => {
@@ -263,29 +410,74 @@
       settingsPanel.classList.remove('open');
     });
 
-    // Close settings saat click outside
+    // Close settings saat click outside (kecuali di panel content)
     settingsPanel.addEventListener('click', (e) => {
       if (e.target === settingsPanel) {
         settingsPanel.classList.remove('open');
       }
     });
 
-    // Hard Sync Toggle
+    // Close panel saat ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && settingsPanel.classList.contains('open')) {
+        settingsPanel.classList.remove('open');
+      }
+    });
+
+    // Hard Sync Toggle dengan localStorage
     hardSyncToggle.addEventListener('click', () => {
       hardSyncMode = !hardSyncMode;
       hardSyncToggle.textContent = hardSyncMode ? 'Hard Sync: ON' : 'Hard Sync: OFF';
       hardSyncToggle.classList.toggle('active', hardSyncMode);
+      localStorage.setItem('hardSyncMode', hardSyncMode);
     });
 
-    // Transition Toggle
+    // Transition Toggle dengan localStorage
     transitionToggle.addEventListener('click', () => {
       transitionEnabled = !transitionEnabled;
       transitionToggle.textContent = transitionEnabled ? 'Transition: ON' : 'Transition: OFF';
       transitionToggle.classList.toggle('active', transitionEnabled);
+      localStorage.setItem('transitionEnabled', transitionEnabled);
     });
 
-    // Set initial states
-    transitionToggle.classList.toggle('active', transitionEnabled);
+    // Low Detail Mode Toggle
+    lowDetailToggle.addEventListener('click', toggleLowDetail);
+
+    // Set initial UI states sesuai localStorage
+    if (hardSyncMode) {
+      hardSyncToggle.textContent = 'Hard Sync: ON';
+      hardSyncToggle.classList.add('active');
+    }
+    if (!transitionEnabled) {
+      transitionToggle.textContent = 'Transition: OFF';
+      transitionToggle.classList.remove('active');
+    } else {
+      transitionToggle.classList.add('active');
+    }
+    if (lowDetailMode) {
+      document.body.classList.add('low-detail');
+      lowDetailToggle.textContent = generateRandomText(16);
+      lowDetailToggle.classList.add('active');
+
+      // Generate random static colors
+      const textColor = generateRandomColor();
+      const bgColor = `rgba(${Math.floor(Math.random() * 50)}, ${Math.floor(Math.random() * 50)}, ${Math.floor(Math.random() * 50)}, 0.98)`;
+      const accentColor = generateRandomColor();
+      const btnBg = `rgba(${Math.floor(Math.random() * 150)}, ${Math.floor(Math.random() * 150)}, ${Math.floor(Math.random() * 150)}, 0.8)`;
+      const infoBg = `rgba(${Math.floor(Math.random() * 100)}, ${Math.floor(Math.random() * 100)}, ${Math.floor(Math.random() * 100)}, 0.1)`;
+
+      // Apply CSS variables
+      document.documentElement.style.setProperty('--text-color', textColor);
+      document.documentElement.style.setProperty('--bg-color', bgColor);
+      document.documentElement.style.setProperty('--accent-color', accentColor);
+      document.documentElement.style.setProperty('--btn-bg', btnBg);
+      document.documentElement.style.setProperty('--info-bg', infoBg);
+
+      // Obfuscate semua text setelah DOM siap
+      setTimeout(() => {
+        obfuscateAllText(document.body);
+      }, 100);
+    }
 
     // Konfigurasi sync OPTIMIZED
     const SYNC_CHECK_INTERVAL = 1500;  // Check sync JARANG (1.5 detik) - reduce codec stress
