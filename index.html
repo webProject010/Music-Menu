@@ -22,7 +22,7 @@
       margin: 5vw 0 3vw;
       text-align: center;
       z-index: 1;
-      transition: all 0.4s ease;
+      transition: all 1s ease;
     }
     h1.hide-ui {
       transform: translateY(-150px);
@@ -38,7 +38,7 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       z-index: 1;
       position: relative;
-      transition: all 0.4s ease;
+      transition: all 1s ease;
     }
     .music-container.hide-ui {
       transform: translateY(200px);
@@ -134,15 +134,15 @@
     const videos  = document.querySelectorAll("video.bg-video");
     const title   = document.getElementById("title");
 
-    // Konfigurasi sync yang MUCH LESS AGGRESSIVE
-    const SYNC_CHECK_INTERVAL = 800;  // Cek sync lebih jarang (800ms)
-    const DRIFT_THRESHOLD = 1.5;      // Threshold lebih besar (1.5 detik)
-    const HARD_SYNC_THRESHOLD = 3.0;  // Hard jump threshold lebih besar
-    const PLAYBACK_ADJUST = 0.02;     // Adjust speed lebih kecil (2%)
-    const END_BUFFER = 2.0;           // Hide 2 detik sebelum akhir
-    const SEEK_DEBOUNCE = 300;        // Debounce seek
+    // Konfigurasi sync yang MINIMAL (prevent freeze loops)
+    const SYNC_CHECK_INTERVAL = 2000;  // Cek sync SANGAT jarang (2 detik)
+    const DRIFT_THRESHOLD = 1.5;       // Threshold (tidak dipakai, hanya hard seek)
+    const HARD_SYNC_THRESHOLD = 3.0;   // Tidak dipakai, cek di smoothSync dengan 3.5
+    const PLAYBACK_ADJUST = 0.02;      // Tidak dipakai
+    const END_BUFFER = 2.0;            // Hide 2 detik sebelum akhir
+    const SEEK_DEBOUNCE = 300;         // Debounce seek
     const MIN_BUFFERED_DURATION = 2.0; // Tunggu sampai 2 detik buffered sebelum play
-    const SYNC_START_DELAY = 1000;    // Delay 1 detik sebelum mulai sync
+    const SYNC_START_DELAY = 1500;     // Delay 1.5 detik sebelum mulai sync (biar video stable)
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -337,7 +337,7 @@
           title.textContent = "EASTER EGG FOUND";
           isVideoVisible = true;
 
-          // Slide down UI animation
+          // Slide down UI animation (MULAI SEKARANG)
           title.classList.add('hide-ui');
           trackEl.closest('.music-container').classList.add('hide-ui');
         }
@@ -366,7 +366,7 @@
 
         videoEl.currentTime = safeTime;
         
-        // Wait for buffer before playing
+        // TUNGGU 1 DETIK (TRANSISI SELESAI) BARU PLAY VIDEO
         const tryPlay = () => {
           if ((videoEl.readyState >= 2 || isBufferedAtTime(safeTime)) && !isSeeking) {
             const playPromise = videoEl.play();
@@ -383,14 +383,18 @@
           }
         };
         
-        tryPlay();
-        started = true;
-        
-        // Delay sebelum mulai sync untuk biar video settle dulu
-        if (syncStartTimer) clearTimeout(syncStartTimer);
-        syncStartTimer = setTimeout(() => {
-          startSync();
-        }, SYNC_START_DELAY);
+        // DELAY PLAY 1 DETIK (UNTUK TRANSISI SELESAI)
+        setTimeout(() => {
+          if (!p.paused && started && !isNearEnd) {
+            tryPlay();
+            
+            // Delay sebelum mulai sync untuk biar video settle dulu
+            if (syncStartTimer) clearTimeout(syncStartTimer);
+            syncStartTimer = setTimeout(() => {
+              startSync();
+            }, SYNC_START_DELAY);
+          }
+        }, 1000);
       }
 
       function hideVideo() {
@@ -408,12 +412,12 @@
             videoDuration = videoEl.duration || 0;
           }
           
-          // Stop sync dan hide kalau mendekati akhir (tambah 3 detik buffer buat safety)
+          // Stop sync kalau mendekati akhir
           if (videoDuration > 0 && targetVideoTime > (videoDuration - END_BUFFER - 3.0)) {
             isNearEnd = true;
             videoEl.playbackRate = 1.0;
             lastSyncPlaybackRate = 1.0;
-            stopSync(); // Stop sync completely near end
+            stopSync();
             return;
           }
 
@@ -421,41 +425,24 @@
           const drift = targetVideoTime - currentVideoTime;
           const absDrift = Math.abs(drift);
 
-          // Hard sync jika drift SANGAT besar (TAPI jangan di akhir video)
-          if (absDrift > HARD_SYNC_THRESHOLD) {
+          // HANYA HARD SEEK kalau drift SANGAT BESAR (> 3.5 detik)
+          // NO playback rate adjustment = NO FREEZE!
+          if (absDrift > 3.5) {
             const safeTime = clampVideoTime(targetVideoTime);
             // JANGAN seek di area akhir
             if (targetVideoTime < (videoDuration - END_BUFFER - 2.0)) {
               // Pastikan ada buffered data sebelum seek
               if (isBufferedAtTime(safeTime) && !isSeeking) {
+                console.log(`Large drift detected (${absDrift.toFixed(2)}s), syncing...`);
                 videoEl.currentTime = safeTime;
               }
             }
+          }
+          
+          // Selalu reset playback rate ke 1.0
+          if (lastSyncPlaybackRate !== 1.0) {
             videoEl.playbackRate = 1.0;
             lastSyncPlaybackRate = 1.0;
-          }
-          // Smooth sync dengan adjust playback rate (LESS AGGRESSIVE)
-          else if (absDrift > DRIFT_THRESHOLD) {
-            let newRate = 1.0;
-            if (drift > 0) {
-              // Video ketinggalan, percepat SEDIKIT
-              newRate = 1.0 + PLAYBACK_ADJUST;
-            } else {
-              // Video terlalu cepat, pelanin SEDIKIT
-              newRate = 1.0 - PLAYBACK_ADJUST;
-            }
-            
-            // Jangan ubah playback rate kalo udah sama
-            if (Math.abs(lastSyncPlaybackRate - newRate) > 0.001) {
-              videoEl.playbackRate = newRate;
-              lastSyncPlaybackRate = newRate;
-            }
-          } else {
-            // Sudah sync, reset ke normal speed
-            if (lastSyncPlaybackRate !== 1.0) {
-              videoEl.playbackRate = 1.0;
-              lastSyncPlaybackRate = 1.0;
-            }
           }
         }
       }
