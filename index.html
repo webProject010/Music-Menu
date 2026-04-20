@@ -479,13 +479,13 @@
       }, 100);
     }
 
-    // Konfigurasi sync OPTIMIZED
-    const SYNC_CHECK_INTERVAL = 1500;  // Check sync JARANG (1.5 detik) - reduce codec stress
+    // Konfigurasi sync OPTIMIZED - faster delay detection
+    const SYNC_CHECK_INTERVAL = 600;   // Check sync lebih sering (600ms)
     const DRIFT_THRESHOLD = 1.0;       // Threshold (tidak dipakai lagi)
     const END_BUFFER = 2.0;            // Hide 2 detik sebelum akhir
     const SEEK_DEBOUNCE = 300;         // Debounce seek
     const MIN_BUFFERED_DURATION = 2.0; // Tunggu sampai 2 detik buffered sebelum play
-    const SYNC_START_DELAY = 500;      // Delay 0.5 detik sebelum mulai sync
+    const SYNC_START_DELAY = 300;      // Delay 0.3 detik sebelum mulai sync
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -777,31 +777,45 @@
             return;
           }
 
+          // Auto Mode: Hard seek untuk drift SANGAT BESAR (> 1.5s)
+          if (!hardSyncMode && absDrift > 1.5) {
+            const safeTime = clampVideoTime(targetVideoTime);
+            if (targetVideoTime < (videoDuration - END_BUFFER - 2.0)) {
+              if (isBufferedAtTime(safeTime) && !isSeeking) {
+                console.log(`Auto hard sync (drift: ${absDrift.toFixed(2)}s)...`);
+                videoEl.currentTime = safeTime;
+                lastAttemptedSeekTime = safeTime;
+              }
+            }
+            videoEl.playbackRate = 1.0;
+            return;
+          }
+
           // Auto Mode: Playback rate adjustment dengan HYSTERESIS
-          // Only adjust jika drift significant (> 0.2s)
-          if (absDrift > 0.2) {
+          // Only adjust jika drift significant (> 0.15s)
+          if (absDrift > 0.15) {
             let newRate = 1.0;
             
             if (drift > 0) {
-              // Video ketinggalan, speedup (tapi GENTLE)
-              // Max rate: 1.05x (5% lebih cepat)
-              const speedupAmount = Math.min(drift * 0.08, 0.05);
+              // Video ketinggalan, speedup lebih agresif
+              // Max rate: 1.10x (10% lebih cepat)
+              const speedupAmount = Math.min(drift * 0.12, 0.10);
               newRate = 1.0 + speedupAmount;
               console.log(`Video lag ${drift.toFixed(2)}s → speed ${newRate.toFixed(3)}x`);
             } else {
-              // Video lebih cepat, slowdown (tapi GENTLE)
-              // Min rate: 0.95x (5% lebih lambat)
-              const slowdownAmount = Math.max(drift * 0.08, -0.05);
+              // Video lebih cepat, slowdown lebih agresif
+              // Min rate: 0.90x (10% lebih lambat)
+              const slowdownAmount = Math.max(drift * 0.12, -0.10);
               newRate = 1.0 + slowdownAmount;
               console.log(`Video ahead ${Math.abs(drift).toFixed(2)}s → speed ${newRate.toFixed(3)}x`);
             }
             
             videoEl.playbackRate = newRate;
-          } else if (absDrift <= 0.1) {
+          } else if (absDrift <= 0.08) {
             // Drift kecil, back to normal
             videoEl.playbackRate = 1.0;
           }
-          // else: 0.1 < drift < 0.2, maintain current rate (hysteresis zone)
+          // else: 0.08 < drift < 0.15, maintain current rate (hysteresis zone)
         }
       }
 
