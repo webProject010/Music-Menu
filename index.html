@@ -597,13 +597,13 @@
     serverDisplay.textContent = `Server ${currentServer}`;
     updateAllSources();
 
-    // Konfigurasi sync OPTIMIZED - faster delay detection
-    const SYNC_CHECK_INTERVAL = 600;   // Check sync lebih sering (600ms)
+    // Konfigurasi sync OPTIMIZED - faster delay detection dan long-term accuracy
+    const SYNC_CHECK_INTERVAL = 400;   // Check sync lebih sering (400ms)
     const DRIFT_THRESHOLD = 1.0;       // Threshold (tidak dipakai lagi)
     const END_BUFFER = 2.0;            // Hide 2 detik sebelum akhir
     const SEEK_DEBOUNCE = 300;         // Debounce seek
     const MIN_BUFFERED_DURATION = 2.0; // Tunggu sampai 2 detik buffered sebelum play
-    const SYNC_START_DELAY = 300;      // Delay 0.3 detik sebelum mulai sync
+    const SYNC_START_DELAY = 200;      // Delay 0.2 detik sebelum mulai sync
 
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
@@ -895,8 +895,8 @@
             return;
           }
 
-          // Auto Mode: Hard seek untuk drift SANGAT BESAR (> 1.5s)
-          if (!hardSyncMode && absDrift > 1.5) {
+          // Auto Mode: Hard seek untuk drift BESAR (> 1.0s)
+          if (!hardSyncMode && absDrift > 1.0) {
             const safeTime = clampVideoTime(targetVideoTime);
             if (targetVideoTime < (videoDuration - END_BUFFER - 2.0)) {
               if (isBufferedAtTime(safeTime) && !isSeeking) {
@@ -910,30 +910,39 @@
           }
 
           // Auto Mode: Playback rate adjustment dengan HYSTERESIS
-          // Only adjust jika drift significant (> 0.15s)
-          if (absDrift > 0.15) {
+          // Only adjust jika drift significant (> 0.10s)
+          if (absDrift > 0.10) {
             let newRate = 1.0;
             
             if (drift > 0) {
               // Video ketinggalan, speedup lebih agresif
-              // Max rate: 1.10x (10% lebih cepat)
-              const speedupAmount = Math.min(drift * 0.12, 0.10);
+              // Max rate: 1.15x (15% lebih cepat untuk catch up faster)
+              const speedupAmount = Math.min(drift * 0.15, 0.15);
               newRate = 1.0 + speedupAmount;
               console.log(`Video lag ${drift.toFixed(2)}s → speed ${newRate.toFixed(3)}x`);
             } else {
               // Video lebih cepat, slowdown lebih agresif
-              // Min rate: 0.90x (10% lebih lambat)
-              const slowdownAmount = Math.max(drift * 0.12, -0.10);
+              // Min rate: 0.85x (15% lebih lambat)
+              const slowdownAmount = Math.max(drift * 0.15, -0.15);
               newRate = 1.0 + slowdownAmount;
               console.log(`Video ahead ${Math.abs(drift).toFixed(2)}s → speed ${newRate.toFixed(3)}x`);
             }
             
             videoEl.playbackRate = newRate;
-          } else if (absDrift <= 0.08) {
-            // Drift kecil, back to normal
+          } else if (absDrift <= 0.05) {
+            // Drift sangat kecil, back to normal
             videoEl.playbackRate = 1.0;
           }
-          // else: 0.08 < drift < 0.15, maintain current rate (hysteresis zone)
+          // else: 0.05 < drift <= 0.10, maintain current rate (hysteresis zone)
+          
+          // Periodical hard sync untuk drift yang persistent
+          if (absDrift > 0.3 && Math.random() < 0.1) {
+            const safeTime = clampVideoTime(targetVideoTime);
+            if (isBufferedAtTime(safeTime) && !isSeeking) {
+              console.log(`Persistent drift detected (${absDrift.toFixed(2)}s), correcting...`);
+              videoEl.currentTime = safeTime;
+            }
+          }
         }
       }
 
@@ -988,13 +997,28 @@
       p.addEventListener("timeupdate", () => {
         const t = p.currentTime;
         
+        // Cek apakah masih dalam periode transisi window (trigger - 1.0 sampai trigger)
+        const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
+        
         // Trigger transisi 1 detik SEBELUM audio reach trigger (JIKA ENABLED)
-        if (transitionEnabled && !transitionStarted && !started && (t >= trigger - 1.0) && (t < trigger) && !p.paused) {
-          title.classList.add('hide-ui');
-          trackEl.closest('.music-container').classList.add('hide-ui');
-          settingsBtn.style.display = 'none'; // Hide settings button during transition
-          settingsPanel.classList.remove('open');
-          transitionStarted = true;
+        if (transitionEnabled && !started && inTransitionWindow && !p.paused) {
+          if (!transitionStarted) {
+            title.classList.add('hide-ui');
+            trackEl.closest('.music-container').classList.add('hide-ui');
+            settingsBtn.style.display = 'none'; // Hide settings button during transition
+            settingsPanel.classList.remove('open');
+            transitionStarted = true;
+          }
+        }
+        
+        // Reset transition flag kalau keluar dari window (untuk handle seek case)
+        if (!inTransitionWindow && !started) {
+          if (transitionStarted) {
+            title.classList.remove('hide-ui');
+            trackEl.closest('.music-container').classList.remove('hide-ui');
+            settingsBtn.style.display = 'block';
+            transitionStarted = false;
+          }
         }
         
         // Trigger video saat mencapai waktu
@@ -1016,6 +1040,21 @@
         // Hide video saat audio selesai
         if (started && p.ended) {
           fullReset();
+        }
+      });
+
+      // Reset transition pada seek untuk handle seek case
+      p.addEventListener("seek", () => {
+        if (!started && transitionStarted) {
+          const t = p.currentTime;
+          const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
+          
+          if (!inTransitionWindow) {
+            title.classList.remove('hide-ui');
+            trackEl.closest('.music-container').classList.remove('hide-ui');
+            settingsBtn.style.display = 'block';
+            transitionStarted = false;
+          }
         }
       });
 
