@@ -1091,6 +1091,7 @@
 
       // Restore UI saat user seek diluar transition window (sebelum video started)
       p.addEventListener("seek", () => {
+        // Case 1: Seek sebelum video started, di dalam transition window
         if (!started && transitionEnabled) {
           const t = p.currentTime;
           const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
@@ -1104,6 +1105,15 @@
             unhideBtn.classList.add('visible');
             state.transitionStarted = true;
           }
+        }
+        
+        // Case 2: Seek saat video sudah playing (started === true)
+        // Hide UI saat user seek di tengah video
+        if (started && videoEl.style.display === "block") {
+          title.classList.add('hide-ui');
+          trackEl.closest('.music-container').classList.add('hide-ui');
+          settingsBtn.style.display = 'none';
+          unhideBtn.classList.add('visible');
         }
       });
 
