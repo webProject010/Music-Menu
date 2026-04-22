@@ -221,7 +221,7 @@
       height: 50px;
       border-radius: 50%;
       background: rgba(76, 175, 80, 0.3);
-      border: 2px solid rgba(76, 175, 80, 0.5);
+      border: 2px solid rgba(76, 175, 80, 0.3);
       color: #fff;
       font-size: 1.3em;
       cursor: pointer;
@@ -229,7 +229,7 @@
       align-items: center;
       justify-content: center;
       transition: all 0.3s ease;
-      z-index: 500;
+      z-index: 999;
       backdrop-filter: blur(5px);
     }
     .unhide-btn.visible {
@@ -237,8 +237,9 @@
     }
     .unhide-btn:hover {
       background: rgba(76, 175, 80, 0.6);
-      border-color: rgba(76, 175, 80, 0.8);
-      transform: translateX(-50%) scale(1.1);
+      border-color: rgba(76, 175, 80, 0.6);
+      transform: translateX(-50%) scale(1.15);
+      box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
     }
     .music-container {
       background: rgba(31,31,31,0.85);
@@ -1091,25 +1092,8 @@
 
       // Restore UI saat user seek diluar transition window (sebelum video started)
       p.addEventListener("seek", () => {
-        // Case 1: Seek sebelum video started, di dalam transition window
-        if (!started && transitionEnabled) {
-          const t = p.currentTime;
-          const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
-          
-          // Kalau seek ke dalam transition window, hide UI dan show unhide button
-          if (inTransitionWindow && !state.transitionStarted) {
-            title.classList.add('hide-ui');
-            trackEl.closest('.music-container').classList.add('hide-ui');
-            settingsBtn.style.display = 'none';
-            settingsPanel.classList.remove('open');
-            unhideBtn.classList.add('visible');
-            state.transitionStarted = true;
-          }
-        }
-        
-        // Case 2: Seek saat video sudah playing (started === true)
-        // Hide UI saat user seek di tengah video
-        if (started && videoEl.style.display === "block") {
+        // Hide UI saat user seek di tengah video (HANYA jika transition enabled)
+        if (started && transitionEnabled && videoEl.style.display === "block") {
           title.classList.add('hide-ui');
           trackEl.closest('.music-container').classList.add('hide-ui');
           settingsBtn.style.display = 'none';
