@@ -211,6 +211,35 @@
     input[type="range"]::-moz-range-thumb:hover {
       background: #66bb6a;
     }
+    /* Unhide Button */
+    .unhide-btn {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(76, 175, 80, 0.3);
+      border: 2px solid rgba(76, 175, 80, 0.5);
+      color: #fff;
+      font-size: 1.3em;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      z-index: 500;
+      backdrop-filter: blur(5px);
+    }
+    .unhide-btn.visible {
+      display: flex;
+    }
+    .unhide-btn:hover {
+      background: rgba(76, 175, 80, 0.6);
+      border-color: rgba(76, 175, 80, 0.8);
+      transform: translateX(-50%) scale(1.1);
+    }
     .music-container {
       background: rgba(31,31,31,0.85);
       border-radius: 15px;
@@ -279,6 +308,11 @@
   <div class="controls">
     <button class="toggle-btn" id="settingsBtn"><i class="fas fa-cog"></i></button>
   </div>
+
+  <!-- Unhide Button - appears saat UI hidden -->
+  <button id="unhideBtn" class="unhide-btn" title="Show UI">
+    <i class="fas fa-eye"></i>
+  </button>
 
   <!-- Settings Panel - Side Panel -->
   <div class="settings-panel" id="settingsPanel">
@@ -363,6 +397,7 @@
     const settingsBtn = document.getElementById("settingsBtn");
     const settingsPanel = document.getElementById("settingsPanel");
     const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+    const unhideBtn = document.getElementById("unhideBtn");
     const hardSyncToggle = document.getElementById("hardSyncToggle");
     const transitionToggle = document.getElementById("transitionToggle");
     const lowDetailToggle = document.getElementById("lowDetailToggle");
@@ -605,6 +640,9 @@
     const MIN_BUFFERED_DURATION = 2.0; // Tunggu sampai 2 detik buffered sebelum play
     const SYNC_START_DELAY = 500;      // Delay 0.5 detik sebelum mulai sync
 
+    // Track state management
+    const trackStates = new Map();
+
     players.forEach(p => {
       const trigger = parseFloat(p.dataset.trigger);
       const videoEl = document.getElementById(p.dataset.video);
@@ -620,8 +658,14 @@
       let isNearEnd = false;
       let lastAttemptedSeekTime = -1;
       let videoWaitingCounter = 0;
-      let transitionStarted = false;
       let syncStartTimer = null;
+      
+      // Store state in track map for external access
+      const state = {
+        transitionStarted: false,
+        started: false
+      };
+      trackStates.set(p, state);
 
       // Preload video saat user interact
       trackEl.addEventListener('mouseenter', () => {
@@ -762,6 +806,7 @@
         const musicContainer = document.querySelector('.music-container');
         musicContainer.classList.remove('hide-ui');
         settingsBtn.style.display = 'block'; // Restore settings button visibility
+        unhideBtn.classList.remove('visible'); // Hide unhide button
         
         videoEl.pause();
         videoEl.currentTime = 0;
@@ -773,7 +818,7 @@
         isSeeking = false;
         lastAttemptedSeekTime = -1;
         videoWaitingCounter = 0;
-        transitionStarted = false;
+        state.transitionStarted = false;
         if (title.textContent === "EASTER EGG FOUND") {
           title.textContent = "Music Player";
         }
@@ -781,6 +826,9 @@
       }
 
       function showVideoAt(time) {
+        // Hide unhide button saat video dimulai
+        unhideBtn.classList.remove('visible');
+        
         // Jangan show kalau mendekati akhir
         if (checkIfNearEnd()) {
           isNearEnd = true;
@@ -963,7 +1011,7 @@
         isNearEnd = false;
         lastAttemptedSeekTime = -1;
         videoWaitingCounter = 0;
-        transitionStarted = false;
+        state.transitionStarted = false;
 
         // Pause other players
         players.forEach(o => { 
@@ -1002,12 +1050,20 @@
           const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
           
           // Trigger transisi hanya 1x per track, saat natural playback reach window
-          if (transitionEnabled && !transitionStarted && inTransitionWindow && !p.paused) {
+          if (transitionEnabled && !state.transitionStarted && inTransitionWindow && !p.paused) {
             title.classList.add('hide-ui');
             trackEl.closest('.music-container').classList.add('hide-ui');
             settingsBtn.style.display = 'none';
             settingsPanel.classList.remove('open');
-            transitionStarted = true;
+            state.transitionStarted = true;
+          }
+          
+          // Restore UI kalau user pause di dalam window (tapi tetap hidden kalau dalam window)
+          if (state.transitionStarted && !inTransitionWindow && p.paused) {
+            title.classList.remove('hide-ui');
+            trackEl.closest('.music-container').classList.remove('hide-ui');
+            settingsBtn.style.display = 'block';
+            state.transitionStarted = false;
           }
         }
         
@@ -1035,16 +1091,18 @@
 
       // Restore UI saat user seek diluar transition window (sebelum video started)
       p.addEventListener("seek", () => {
-        if (!started && transitionStarted) {
+        if (!started && transitionEnabled) {
           const t = p.currentTime;
           const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
           
-          // Jika seek keluar dari window, restore UI
-          if (!inTransitionWindow) {
-            title.classList.remove('hide-ui');
-            trackEl.closest('.music-container').classList.remove('hide-ui');
-            settingsBtn.style.display = 'block';
-            transitionStarted = false;
+          // Kalau seek ke dalam transition window, hide UI dan show unhide button
+          if (inTransitionWindow && !state.transitionStarted) {
+            title.classList.add('hide-ui');
+            trackEl.closest('.music-container').classList.add('hide-ui');
+            settingsBtn.style.display = 'none';
+            settingsPanel.classList.remove('open');
+            unhideBtn.classList.add('visible');
+            state.transitionStarted = true;
           }
         }
       });
@@ -1064,7 +1122,7 @@
           
           isNearEnd = false;
           lastAttemptedSeekTime = -1;
-          transitionStarted = false;
+          state.transitionStarted = false;
 
           if (checkIfNearEnd()) {
             isNearEnd = true;
@@ -1100,6 +1158,23 @@
 
       p.addEventListener("ended", () => {
         fullReset();
+      });
+    });
+
+    // Unhide button handler
+    unhideBtn.addEventListener('click', () => {
+      // Restore UI - remove hide-ui class dari semua elements
+      title.classList.remove('hide-ui');
+      const containers = document.querySelectorAll('.music-container');
+      containers.forEach(c => c.classList.remove('hide-ui'));
+      
+      // Restore settings button dan hide unhide button
+      settingsBtn.style.display = 'block';
+      unhideBtn.classList.remove('visible');
+      
+      // Reset transition states untuk semua tracks
+      trackStates.forEach((state) => {
+        state.transitionStarted = false;
       });
     });
 
