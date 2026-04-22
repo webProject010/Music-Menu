@@ -177,6 +177,40 @@
       background: var(--accent-color, rgba(76, 175, 80, 0.8)) !important;
       border-color: var(--accent-color, #4caf50) !important;
     }
+    /* Server Slider Styling */
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(100, 100, 100, 0.5);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #4caf50;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #4caf50;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #66bb6a;
+    }
+    input[type="range"]::-moz-range-thumb:hover {
+      background: #66bb6a;
+    }
     .music-container {
       background: rgba(31,31,31,0.85);
       border-radius: 15px;
@@ -272,16 +306,27 @@
         <div class="settings-info">
           Mode hard sync akan melakukan sinkronisasi langsung untuk hasil yang lebih presisi.
         </div>
+        
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+          <h4 style="margin-top: 0;">Server Switch</h4>
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <input type="range" id="serverSlider" min="1" max="3" value="1" style="flex: 1; cursor: pointer;">
+            <span id="serverDisplay" style="min-width: 50px; text-align: right;">Server 1</span>
+          </div>
+          <div class="settings-info" style="margin-top: 10px;">
+            Pilih server untuk streaming video dan audio.
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Video elements -->
   <video id="video-funk" class="bg-video" muted preload="metadata">
-    <source src="https://stream.mux.com/MHfx2BCRfd9rrOmZfaEV4zhANb02hNx23fE55Ta6XBgg.m3u8" type="application/x-mpegURL" />
+    <source src="https://files.catbox.moe/21926t.mp4" type="video/mp4" />
   </video>
   <video id="video-stay" class="bg-video" muted preload="metadata">
-    <source src="https://stream.mux.com/IZuLomia6ZZWYqUU1UoNy014jBDIU7WJwNEJAdDb3wB8.m3u8" type="video/mp4" />
+    <source src="https://files.catbox.moe/mh9uyb.mp4" type="video/mp4" />
   </video>
   <video id="video-girl" class="bg-video" muted preload="metadata">
     <source src="https://files.catbox.moe/tk75pg.mp4" type="video/mp4" />
@@ -292,14 +337,14 @@
       <div class="status-indicator"></div>
       <div class="track-title">Irokz - Funk Universo</div>
       <audio controls data-trigger="73.3" data-video="video-funk">
-        <source src="https://stream.mux.com/N4SA02XM1IO5ejjOAKV00700JHAnDR5jarF4IlsH01qI6Xs.m3u8" type="audio/mp3" />
+        <source src="https://files.catbox.moe/6wsohl.mp3" type="audio/mp3" />
       </audio>
     </div>
     <div class="track" data-track="1">
       <div class="status-indicator"></div>
       <div class="track-title">Justin Bieber - STAY Remix</div>
       <audio controls data-trigger="25.3" data-video="video-stay">
-        <source src="https://stream.mux.com/PCMo8M0102lJA5tqWeoFXv9fnzSGYt2ao8L01IvBUQAFJ4.m3u8" type="audio/mp3" />
+        <source src="https://files.catbox.moe/q7n43k.mp3" type="audio/mp3" />
       </audio>
     </div>
     <div class="track" data-track="2">
@@ -321,11 +366,33 @@
     const hardSyncToggle = document.getElementById("hardSyncToggle");
     const transitionToggle = document.getElementById("transitionToggle");
     const lowDetailToggle = document.getElementById("lowDetailToggle");
+    const serverSlider = document.getElementById("serverSlider");
+    const serverDisplay = document.getElementById("serverDisplay");
+
+    // Server URLs configuration
+    const serverConfig = {
+      1: {
+        funk: { video: 'https://files.catbox.moe/21926t.mp4', audio: 'https://files.catbox.moe/6wsohl.mp3' },
+        stay: { video: 'https://files.catbox.moe/mh9uyb.mp4', audio: 'https://files.catbox.moe/q7n43k.mp3' },
+        girl: { video: 'https://files.catbox.moe/tk75pg.mp4', audio: 'https://files.catbox.moe/8s572t.mp3' }
+      },
+      2: {
+        funk: { video: 'https://stream.mux.com/MHfx2BCRfd9rrOmZfaEV4zhANb02hNx23fE55Ta6XBgg.m3u8', audio: 'https://stream.mux.com/N4SA02XM1IO5ejjOAKV00700JHAnDR5jarF4IlsH01qI6Xs.m3u8' },
+        stay: { video: 'https://stream.mux.com/IZuLomia6ZZWYqUU1UoNy014jBDIU7WJwNEJAdDb3wB8.m3u8', audio: 'https://stream.mux.com/PCMo8M0102lJA5tqWeoFXv9fnzSGYt2ao8L01IvBUQAFJ4.m3u8' },
+        girl: { video: '', audio: '' }
+      },
+      3: {
+        funk: { video: '', audio: '' },
+        stay: { video: '', audio: '' },
+        girl: { video: '', audio: '' }
+      }
+    };
 
     // Global states dengan localStorage persistence
     let hardSyncMode = localStorage.getItem('hardSyncMode') === 'true' ? true : false;
     let transitionEnabled = localStorage.getItem('transitionEnabled') === 'false' ? false : true;
     let lowDetailMode = localStorage.getItem('lowDetailMode') === 'true' ? true : false;
+    let currentServer = parseInt(localStorage.getItem('currentServer') || '1');
 
     // Generate random text
     function generateRandomText(length) {
@@ -443,6 +510,52 @@
     // Low Detail Mode Toggle
     lowDetailToggle.addEventListener('click', toggleLowDetail);
 
+    // Server Switch Handler
+    serverSlider.addEventListener('change', (e) => {
+      currentServer = parseInt(e.target.value);
+      serverDisplay.textContent = `Server ${currentServer}`;
+      localStorage.setItem('currentServer', currentServer);
+      updateAllSources();
+      console.log(`Switched to Server ${currentServer}`);
+    });
+
+    // Function to update all video and audio sources
+    function updateAllSources() {
+      const audioElements = document.querySelectorAll('audio');
+      
+      audioElements.forEach((audio) => {
+        const videoId = audio.getAttribute('data-video');
+        const videoElement = document.getElementById(videoId);
+        
+        let key = '';
+        if (videoId === 'video-funk') key = 'funk';
+        else if (videoId === 'video-stay') key = 'stay';
+        else if (videoId === 'video-girl') key = 'girl';
+
+        if (key && serverConfig[currentServer][key].video) {
+          // Update video
+          if (videoElement) {
+            const videoSource = videoElement.querySelector('source');
+            const oldType = videoSource.type;
+            videoSource.src = serverConfig[currentServer][key].video;
+            // Update type based on file extension
+            if (serverConfig[currentServer][key].video.includes('.m3u8')) {
+              videoSource.type = 'application/x-mpegURL';
+            } else {
+              videoSource.type = 'video/mp4';
+            }
+            videoElement.load();
+          }
+          
+          // Update audio
+          const audioSource = audio.querySelector('source');
+          audioSource.src = serverConfig[currentServer][key].audio;
+          audioSource.type = 'audio/mpeg';
+          audio.load();
+        }
+      });
+    }
+
     // Set initial UI states sesuai localStorage
     if (hardSyncMode) {
       hardSyncToggle.textContent = 'Hard Sync: ON';
@@ -478,6 +591,11 @@
         obfuscateAllText(document.body);
       }, 100);
     }
+
+    // Initialize server slider
+    serverSlider.value = currentServer;
+    serverDisplay.textContent = `Server ${currentServer}`;
+    updateAllSources();
 
     // Konfigurasi sync OPTIMIZED - faster delay detection
     const SYNC_CHECK_INTERVAL = 600;   // Check sync lebih sering (600ms)
