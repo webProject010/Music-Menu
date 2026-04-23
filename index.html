@@ -1093,8 +1093,9 @@
 
       // Restore UI saat user seek diluar transition window (sebelum video started)
       p.addEventListener("seek", () => {
-        // Kalau transition enabled, video visible, dan user seek → hide UI (BUKAN VIDEO)
-        if (transitionEnabled && videoEl.style.display === "block") {
+        // Kalau transition enabled, video started, dan user seek → hide UI
+        if (transitionEnabled && started) {
+          console.log('Seek - hiding UI for track:', trigger);
           title.classList.add('hide-ui');
           trackEl.closest('.music-container').classList.add('hide-ui');
           settingsBtn.style.display = 'none';
