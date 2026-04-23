@@ -1056,6 +1056,7 @@
             trackEl.closest('.music-container').classList.add('hide-ui');
             settingsBtn.style.display = 'none';
             settingsPanel.classList.remove('open');
+            unhideBtn.classList.add('visible');
             state.transitionStarted = true;
           }
           
@@ -1092,8 +1093,8 @@
 
       // Restore UI saat user seek diluar transition window (sebelum video started)
       p.addEventListener("seek", () => {
-        // Hide UI saat user seek di tengah video (HANYA jika transition enabled)
-        if (started && transitionEnabled && videoEl.style.display === "block") {
+        // Kalau video visible dan user seek, hide UI - TITIK
+        if (videoEl.style.display === "block") {
           title.classList.add('hide-ui');
           trackEl.closest('.music-container').classList.add('hide-ui');
           settingsBtn.style.display = 'none';
