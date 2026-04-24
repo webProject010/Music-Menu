@@ -211,10 +211,10 @@
     input[type="range"]::-moz-range-thumb:hover {
       background: #66bb6a;
     }
-    /* Unhide Button */
-    .unhide-btn {
+    /* Toggle UI Button */
+    .toggle-ui-btn {
       position: fixed;
-      bottom: 30px;
+      bottom: -60px;
       left: 50%;
       transform: translateX(-50%);
       width: 50px;
@@ -223,19 +223,19 @@
       background: rgba(76, 175, 80, 0.3);
       border: 2px solid rgba(76, 175, 80, 0.3);
       color: #fff;
-      font-size: 1.3em;
+      font-size: 1.5em;
       cursor: pointer;
-      display: none;
+      display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.3s ease;
+      transition: all 0.4s ease;
       z-index: 999;
       backdrop-filter: blur(5px);
     }
-    .unhide-btn.visible {
-      display: flex;
+    .toggle-ui-btn.show {
+      bottom: 30px;
     }
-    .unhide-btn:hover {
+    .toggle-ui-btn:hover {
       background: rgba(76, 175, 80, 0.6);
       border-color: rgba(76, 175, 80, 0.6);
       transform: translateX(-50%) scale(1.15);
@@ -310,9 +310,9 @@
     <button class="toggle-btn" id="settingsBtn"><i class="fas fa-cog"></i></button>
   </div>
 
-  <!-- Unhide Button - appears saat UI hidden -->
-  <button id="unhideBtn" class="unhide-btn" title="Show UI">
-    <i class="fas fa-eye"></i>
+  <!-- Toggle UI Button - X untuk hide, O untuk unhide -->
+  <button id="toggleUIBtn" class="toggle-ui-btn" title="Toggle UI">
+    <i class="fas fa-times"></i>
   </button>
 
   <!-- Settings Panel - Side Panel -->
@@ -398,7 +398,7 @@
     const settingsBtn = document.getElementById("settingsBtn");
     const settingsPanel = document.getElementById("settingsPanel");
     const closeSettingsBtn = document.getElementById("closeSettingsBtn");
-    const unhideBtn = document.getElementById("unhideBtn");
+    const toggleUIBtn = document.getElementById("toggleUIBtn");
     const hardSyncToggle = document.getElementById("hardSyncToggle");
     const transitionToggle = document.getElementById("transitionToggle");
     const lowDetailToggle = document.getElementById("lowDetailToggle");
@@ -541,6 +541,7 @@
       transitionToggle.textContent = transitionEnabled ? 'Transition: ON' : 'Transition: OFF';
       transitionToggle.classList.toggle('active', transitionEnabled);
       localStorage.setItem('transitionEnabled', transitionEnabled);
+      // Button tetap aktif, tidak perlu reset
     });
 
     // Low Detail Mode Toggle
@@ -632,6 +633,14 @@
     serverSlider.value = currentServer;
     serverDisplay.textContent = `Server ${currentServer}`;
     updateAllSources();
+
+    // Track UI state - declare FIRST
+    let isUIHidden = false;
+
+    // Initialize toggle button - always show
+    toggleUIBtn.classList.add('show');
+    toggleUIBtn.innerHTML = '<i class="fas fa-times"></i>';
+    isUIHidden = false;
 
     // Konfigurasi sync ORIGINAL - stable state
     const SYNC_CHECK_INTERVAL = 600;   // Check sync (600ms)
@@ -807,7 +816,7 @@
         const musicContainer = document.querySelector('.music-container');
         musicContainer.classList.remove('hide-ui');
         settingsBtn.style.display = 'block'; // Restore settings button visibility
-        unhideBtn.classList.remove('visible'); // Hide unhide button
+        toggleUIBtn.classList.remove('show'); // Hide unhide button
         
         videoEl.pause();
         videoEl.currentTime = 0;
@@ -828,7 +837,7 @@
 
       function showVideoAt(time) {
         // Hide unhide button saat video dimulai
-        unhideBtn.classList.remove('visible');
+        toggleUIBtn.classList.remove('show');
         
         // Jangan show kalau mendekati akhir
         if (checkIfNearEnd()) {
@@ -859,7 +868,7 @@
             title.classList.add('hide-ui');
             trackEl.closest('.music-container').classList.add('hide-ui');
             settingsBtn.style.display = 'none';
-            unhideBtn.classList.add('visible');
+            // Jangan show button saat transition ON
             state.transitionStarted = true;
           }
         }
@@ -1065,7 +1074,7 @@
             trackEl.closest('.music-container').classList.add('hide-ui');
             settingsBtn.style.display = 'none';
             settingsPanel.classList.remove('open');
-            unhideBtn.classList.add('visible');
+            // Jangan show button saat transition ON
             state.transitionStarted = true;
           }
           
@@ -1165,20 +1174,28 @@
     });
 
     // Unhide button handler
-    unhideBtn.addEventListener('click', () => {
-      // Restore UI - remove hide-ui class dari semua elements
-      title.classList.remove('hide-ui');
-      const containers = document.querySelectorAll('.music-container');
-      containers.forEach(c => c.classList.remove('hide-ui'));
-      
-      // Restore settings button dan hide unhide button
-      settingsBtn.style.display = 'block';
-      unhideBtn.classList.remove('visible');
-      
-      // Reset transition states untuk semua tracks
-      trackStates.forEach((state) => {
-        state.transitionStarted = false;
-      });
+    toggleUIBtn.addEventListener('click', () => {
+      // Button selalu aktif, tidak peduli transition state
+
+      if (isUIHidden) {
+        // Show UI
+        title.classList.remove('hide-ui');
+        const containers = document.querySelectorAll('.music-container');
+        containers.forEach(c => c.classList.remove('hide-ui'));
+        settingsBtn.style.display = 'block';
+        isUIHidden = false;
+        // Icon X
+        toggleUIBtn.innerHTML = '<i class="fas fa-times"></i>';
+      } else {
+        // Hide UI
+        title.classList.add('hide-ui');
+        const containers = document.querySelectorAll('.music-container');
+        containers.forEach(c => c.classList.add('hide-ui'));
+        settingsBtn.style.display = 'none';
+        isUIHidden = true;
+        // Icon O
+        toggleUIBtn.innerHTML = '<i class="fas fa-circle"></i>';
+      }
     });
 
     // Page visibility
