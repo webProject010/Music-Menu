@@ -1093,20 +1093,30 @@
 
       p.addEventListener("seek", () => {
       p.addEventListener("seek", () => {
-        if (transitionEnabled && started) {
+        // Case 1: Video belum started, user seek, transition enabled → langsung play dengan UI hidden
+        if (!started && transitionEnabled) {
+          const t = p.currentTime;
+          title.classList.add('hide-ui');
+          trackEl.closest('.music-container').classList.add('hide-ui');
+          settingsBtn.style.display = 'none';
+          unhideBtn.classList.add('visible');
+          // Trigger video langsung
+          showVideoAt(t);
+          state.transitionStarted = true;
+        }
+        // Case 2: Video sudah started, check transitionStarted state
+        else if (started && transitionEnabled) {
           const t = p.currentTime;
           const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
           
-          // Kalau transition sudah started (UI sudah hidden), tetap hidden saat seek
+          // Kalau transition sudah started atau dalam window, tetap hidden
           if (state.transitionStarted || inTransitionWindow) {
-            console.log('Hiding UI - transitionStarted:', state.transitionStarted, 'inWindow:', inTransitionWindow);
             title.classList.add('hide-ui');
             trackEl.closest('.music-container').classList.add('hide-ui');
             settingsBtn.style.display = 'none';
             unhideBtn.classList.add('visible');
           } else {
-            // Kalau keluar dari transisi, restore UI
-            console.log('Restoring UI');
+            // Keluar dari transisi, restore UI
             title.classList.remove('hide-ui');
             trackEl.closest('.music-container').classList.remove('hide-ui');
             settingsBtn.style.display = 'block';
