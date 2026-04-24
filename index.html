@@ -853,6 +853,15 @@
           videoEl.style.display = "block";
           title.textContent = "EASTER EGG FOUND";
           isVideoVisible = true;
+          
+          // Hide UI jika transition enabled
+          if (transitionEnabled) {
+            title.classList.add('hide-ui');
+            trackEl.closest('.music-container').classList.add('hide-ui');
+            settingsBtn.style.display = 'none';
+            unhideBtn.classList.add('visible');
+            state.transitionStarted = true;
+          }
         }
         
         const targetTime = Math.max(0, time - trigger);
@@ -1093,36 +1102,10 @@
 
       p.addEventListener("seek", () => {
       p.addEventListener("seek", () => {
-        // Case 1: Video belum started, user seek, transition enabled → langsung play dengan UI hidden
+        // Kalau video belum started dan transition enabled, langsung trigger
         if (!started && transitionEnabled) {
           const t = p.currentTime;
-          // Trigger video langsung
           showVideoAt(t);
-          // SEKARANG hide UI (PENTING - showVideoAt tidak menghide)
-          title.classList.add('hide-ui');
-          trackEl.closest('.music-container').classList.add('hide-ui');
-          settingsBtn.style.display = 'none';
-          unhideBtn.classList.add('visible');
-          state.transitionStarted = true;
-        }
-        // Case 2: Video sudah started, check transitionStarted state
-        else if (started && transitionEnabled) {
-          const t = p.currentTime;
-          const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
-          
-          // Kalau transition sudah started atau dalam window, tetap hidden
-          if (state.transitionStarted || inTransitionWindow) {
-            title.classList.add('hide-ui');
-            trackEl.closest('.music-container').classList.add('hide-ui');
-            settingsBtn.style.display = 'none';
-            unhideBtn.classList.add('visible');
-          } else {
-            // Keluar dari transisi, restore UI
-            title.classList.remove('hide-ui');
-            trackEl.closest('.music-container').classList.remove('hide-ui');
-            settingsBtn.style.display = 'block';
-            unhideBtn.classList.remove('visible');
-          }
         }
       });
       });
