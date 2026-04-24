@@ -1091,16 +1091,29 @@
         }
       });
 
-      // Restore UI saat user seek diluar transition window (sebelum video started)
       p.addEventListener("seek", () => {
-        // Kalau transition enabled, video started, dan user seek → hide UI
+      p.addEventListener("seek", () => {
         if (transitionEnabled && started) {
-          console.log('Seek - hiding UI for track:', trigger);
-          title.classList.add('hide-ui');
-          trackEl.closest('.music-container').classList.add('hide-ui');
-          settingsBtn.style.display = 'none';
-          unhideBtn.classList.add('visible');
+          const t = p.currentTime;
+          const inTransitionWindow = (t >= trigger - 1.0) && (t < trigger);
+          
+          // Kalau transition sudah started (UI sudah hidden), tetap hidden saat seek
+          if (state.transitionStarted || inTransitionWindow) {
+            console.log('Hiding UI - transitionStarted:', state.transitionStarted, 'inWindow:', inTransitionWindow);
+            title.classList.add('hide-ui');
+            trackEl.closest('.music-container').classList.add('hide-ui');
+            settingsBtn.style.display = 'none';
+            unhideBtn.classList.add('visible');
+          } else {
+            // Kalau keluar dari transisi, restore UI
+            console.log('Restoring UI');
+            title.classList.remove('hide-ui');
+            trackEl.closest('.music-container').classList.remove('hide-ui');
+            settingsBtn.style.display = 'block';
+            unhideBtn.classList.remove('visible');
+          }
         }
+      });
       });
 
       // Seek handling dengan debounce
