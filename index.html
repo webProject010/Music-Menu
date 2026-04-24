@@ -1096,12 +1096,13 @@
         // Case 1: Video belum started, user seek, transition enabled → langsung play dengan UI hidden
         if (!started && transitionEnabled) {
           const t = p.currentTime;
+          // Trigger video langsung
+          showVideoAt(t);
+          // SEKARANG hide UI (PENTING - showVideoAt tidak menghide)
           title.classList.add('hide-ui');
           trackEl.closest('.music-container').classList.add('hide-ui');
           settingsBtn.style.display = 'none';
           unhideBtn.classList.add('visible');
-          // Trigger video langsung
-          showVideoAt(t);
           state.transitionStarted = true;
         }
         // Case 2: Video sudah started, check transitionStarted state
